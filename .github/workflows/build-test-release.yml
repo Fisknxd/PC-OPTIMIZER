@@ -1,0 +1,76 @@
+name: Build, test and package
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: dotnet restore FrameForge.sln --locked-mode
+      - run: dotnet build FrameForge.sln -c Release --no-restore
+      - run: dotnet test tests/FrameForge.Tests -c Release --no-build --logger trx --results-directory artifacts/test-results
+      - name: Validate packaging failure cases
+        run: python -m unittest discover -s scripts -p "test_*.py"
+      - name: Package Windows universal ZIP
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet publish src/FrameForge.App -c Release -r win-x64 --self-contained true --no-restore -o artifacts/publish/win-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/package.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Nondestructive WPF launch and close
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath artifacts/publish/win-x64/FrameForge.exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $p.WaitForExit(30000)) { $p.Kill(); throw 'WPF launch smoke test timed out' }
+          if ($p.ExitCode -ne 0) { throw "WPF launch failed: $($p.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FrameForge-${{ runner.os }}
+          path: |
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt
+            artifacts/test-results/*.trx
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FrameForge-Windows
+          path: release
+      - name: Publish tagged release as preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cat > /tmp/frameforge-release-notes.md <<'NOTES'
+          FrameForge Windows x64 engineering preview.
+
+          Download FrameForge-Desktop.zip, extract the ENTIRE archive, and run Place-on-Desktop.cmd. It copies the app, runtime, documentation and complete source to Desktop/FrameForge without overwriting an existing folder. Then open FrameForge.exe.
+
+          CI builds the application, runs portable tests and a nondestructive Windows WPF launch/close smoke test. Real system modifications, rollback on supported Windows versions, and physical AMD/NVIDIA/Intel hardware acceptance remain pending. Do not treat this preview as production-validated. No FPS improvement has been established. Test mutating features in disposable Windows VMs first.
+          NOTES
+          gh release create "$RELEASE_TAG" release/*.zip release/SHA256SUMS.txt --prerelease --title "FrameForge $RELEASE_TAG — Engineering Preview" --notes-file /tmp/frameforge-release-notes.md
