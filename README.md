@@ -2,13 +2,13 @@
 
 A native Windows gaming and system-management toolkit built with .NET 10 and WPF. FrameForge reads real hardware data, offers reviewed configuration changes, and preserves the original state of supported settings. It never promises a universal FPS increase.
 
-**Status: 0.1.1 engineering preview.** Cross-compilation and portable tests do not establish Windows runtime safety or MVP acceptance. Run the [Windows acceptance checklist](docs/WINDOWS-ACCEPTANCE.md) in disposable VMs before using mutating features on a primary PC. See [scope and limitations](docs/STATUS.md). Advanced phases remain gated on MVP acceptance.
+**Status: 0.1.2 engineering preview.** Cross-compilation and portable tests do not establish Windows runtime safety or MVP acceptance. Run the [Windows acceptance checklist](docs/WINDOWS-ACCEPTANCE.md) in disposable VMs before using mutating features on a primary PC. See [scope and limitations](docs/STATUS.md). Advanced phases remain gated on MVP acceptance.
 
 ## What works in the implementation
 
 - On-demand WMI inventory: CPU, GPU vendor/driver, memory/modules, storage, board/BIOS, startup entries, display report, network/DNS and security-provider inventory. Unsupported data is labeled Unavailable.
 - Searchable compatibility-aware catalog, Safe/Balanced/Advanced review modes, individual previews, and a hardware-aware manual review plan plus a small optional Smart Optimize change list. No experimental actions run automatically.
-- Three reversible HKCU shell preferences (file extensions, hidden files and app theme), plus a desktop-only Balanced-plan experiment. **These are not advertised as proven gaming improvements.** Gaming/capture/GPU/startup/privacy controls open the supported Windows interfaces for manual review.
+- One-click On/Off controls for three reversible HKCU shell preferences (file extensions, hidden files and app theme), plus a desktop-only Balanced-plan experiment. **These are not advertised as proven gaming improvements.** Gaming/capture/GPU/startup/privacy controls open the supported Windows interfaces for manual review.
 - Write-ahead, atomically saved JSON history, read-back verification, individual/session rollback, interruption recovery, conflict detection, audit export and subjective impact ratings.
 - Per-user Appx inventory with narrow optional and user-decision lists; protected components and packages with dependents are blocked. Explicit individual uninstall confirmation, inventory backup, result verification. No automatic uninstall rollback.
 - Preview and selected deletion of old regular .tmp/.temp/.log files in the standard user TEMP. Age/path/link/metadata checks, Windows file-identity verification, locked-file skipping, audit trail. No browser/shader cache deletion, personal-folder cleanup or automatic mass deletion.
@@ -40,10 +40,11 @@ Runs without elevation; no scheduled tasks, services, analytics, arbitrary shell
 
 State is stored under `%LOCALAPPDATA%\FrameForge`. Never delete the journal while relying on undo. History can contain local paths and machine details; review before sharing. No secrets are requested. Prepared/failed records remain visible after interrupted operations. Registry backup types are validated; unknown operations cannot be executed through history.
 
-Start with **Scan PC**, review **Optimize**, and approve only changes you understand. Use **Restore** to undo supported changes. Cleanup and app removal are irreversible in FrameForge and require separate confirmation. Refresh Explorer/sign out manually if a shell preference is not yet visible; FrameForge does not restart the shell.
+Start with the automatic scan, then open **Optimize → Quick switches**. A switch click immediately applies that individual setting with an automatic backup. Tap ☆ for Favorites; use the visible Undo button to restore the previous value. External Windows/driver controls remain Open actions. Use **Restore** to undo supported changes. Cleanup and app removal are irreversible in FrameForge and require separate confirmation. Refresh Explorer/sign out manually if a shell preference is not yet visible; FrameForge does not restart the shell.
 
 ## Documentation
 
+- [0.1.2 simple controls and validation](docs/UPDATE-0.1.2.md).
 - [0.1.1 changes and pending checks](docs/UPDATE-0.1.1.md).
 - [Development plan](docs/PLAN.md) — architecture, risks, dependencies, milestones and acceptance gates.
 - [Evidence register](docs/EVIDENCE.md) — mechanisms, exact registry keys, vendor constraints and source limitations.

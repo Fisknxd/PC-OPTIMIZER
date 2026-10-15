@@ -1,4 +1,4 @@
-FRAMEFORGE 0.1.1 — WINDOWS X64 ENGINEERING PREVIEW
+FRAMEFORGE 0.1.2 — WINDOWS X64 ENGINEERING PREVIEW
 
 WHAT IT DOES
 FrameForge inventories hardware and Windows configuration, presents reviewed
@@ -23,6 +23,17 @@ Run in a disposable Windows VM first. Click Scan PC. WMI reads CPU, GPU/driver,
 RAM, storage and Windows information. Unknown data is shown as Unavailable.
 There are no fabricated GPU memory, temperature or FPS readings.
 No automatic network access, startup registration, or persistent service.
+
+QUICK SWITCHES / FAVORITES / UNDO
+Optimize opens Quick switches. One click turns supported preferences On or Off;
+the original value is backed up BEFORE writing, and the result is verified.
+Windows default is distinguished from a measured Off state. Unknown values and
+unsupported settings are unavailable. Off sets the disabled value; Undo restores
+the exact previous value or absence. Never assume Off means restore defaults.
+Tap the star to save Favorites. Ctrl+K opens search; Escape clears it while typing.
+Ctrl+Z outside text fields or Undo last change restores the latest saved change.
+Hidden files requires Balanced mode. External Windows/driver options use Open
+buttons; cleanup and uninstall remain separately confirmed irreversible actions.
 
 SMART OPTIMIZE AND MODES
 Smart Optimize matches manual gaming/startup/vendor reviews to the scanned PC.

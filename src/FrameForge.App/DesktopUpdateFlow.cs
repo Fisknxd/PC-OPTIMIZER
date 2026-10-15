@@ -19,7 +19,7 @@ internal static class DesktopUpdateFlow
         }
         else if(!Directory.Exists(destination))
         {
-            var choice=MessageBox.Show("Install on Desktop?\n\nChoose Yes to create Desktop\\FrameForge. Choose No to select an existing application folder elsewhere. Saved settings and optimization history stay in LocalAppData.","FrameForge 0.1.1 update",MessageBoxButton.YesNoCancel,MessageBoxImage.Question);
+            var choice=MessageBox.Show("Install on Desktop?\n\nChoose Yes to create Desktop\\FrameForge. Choose No to select an existing application folder elsewhere. Saved settings and optimization history stay in LocalAppData.","FrameForge 0.1.2 update",MessageBoxButton.YesNoCancel,MessageBoxImage.Question);
             if(choice==MessageBoxResult.Cancel) return;
             if(choice==MessageBoxResult.No) destination=SelectFolder(desktop);
         }
@@ -28,9 +28,9 @@ internal static class DesktopUpdateFlow
         {
             MessageBox.Show("This folder already contains the update you are running. Open FrameForge.exe to use it.","Already in this folder"); return;
         }
-        if(MessageBox.Show($"Update this application folder?\n\n{destination}\n\nThe entire previous folder will be kept in a dated backup beside it. Your saved history/settings in LocalAppData are not changed. Extract this update into Downloads first, and close the old app before continuing.","Install FrameForge 0.1.1",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes) return;
+        if(MessageBox.Show($"Update this application folder?\n\n{destination}\n\nThe entire previous folder will be kept in a dated backup beside it. Your saved history/settings in LocalAppData are not changed. Extract this update into Downloads first, and close the old app before continuing.","Install FrameForge 0.1.2",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes) return;
         var result=FolderUpdater.Install(source,destination);
-        MessageBox.Show($"FrameForge 0.1.1 is installed.\n\nOpen: {Path.Combine(result.Destination,"FrameForge.exe")}\n\n"+(result.Backup==null?"No existing folder was replaced.":"Previous version preserved at: "+result.Backup)+"\n\nSettings and optimization history are unchanged.","Update complete",MessageBoxButton.OK,MessageBoxImage.Information);
+        MessageBox.Show($"FrameForge 0.1.2 is installed.\n\nOpen: {Path.Combine(result.Destination,"FrameForge.exe")}\n\n"+(result.Backup==null?"No existing folder was replaced.":"Previous version preserved at: "+result.Backup)+"\n\nSettings and optimization history are unchanged.","Update complete",MessageBoxButton.OK,MessageBoxImage.Information);
     }
     static string SelectFolder(string initial)
     {

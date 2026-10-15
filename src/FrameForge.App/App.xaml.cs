@@ -24,12 +24,17 @@ public partial class App : Application
             _=store.Load<List<ChangeRecord>>("history.json",()=>[]);
             if(testMode)
             {
-                var window=new MainWindow(store,autoScan:false); MainWindow=window; window.Show();
-                window.Dispatcher.BeginInvoke(new Action(()=>
+                var window=new MainWindow(store,autoScan:false,settings:e.Args.Contains("--ui-test")?new UiTestSettings():null); MainWindow=window; window.Show();
+                window.Dispatcher.BeginInvoke(new Action(async()=>
                 {
                     try
                     {
-                        if(e.Args.Contains("--ui-test")) window.ValidateAppearance(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"));
+                        if(e.Args.Contains("--ui-test"))
+                        {
+                            var output=Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks");
+                            await window.ValidateFeatureInteractions(output);
+                            window.ValidateAppearance(output);
+                        }
                         window.Close(); Shutdown(0);
                     }
                     catch(Exception ex)

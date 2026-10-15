@@ -57,14 +57,16 @@ public sealed class OperationEngine(ISystemSettings system, JsonStore store)
 {
     readonly SemaphoreSlim gate = new(1,1);
     public List<ChangeRecord> History => store.Load<List<ChangeRecord>>("history.json",()=>[]);
-    public async Task<ActionPreview> Preview(Optimization op, HardwareSnapshot hardware)
+    public async Task<ActionPreview> Preview(Optimization op, HardwareSnapshot hardware, bool enabled = true)
     {
         if (op.Incompatibility(hardware) is {} reason) throw new InvalidOperationException(reason);
         if (!op.Reversible) throw new InvalidOperationException("This action opens a reviewed external interface and is not an automatic operation.");
         if (op.Admin && !system.IsAdministrator) throw new UnauthorizedAccessException("Administrator permission required; no changes made.");
+        if(!enabled&&!op.CanToggle) throw new InvalidOperationException("This action does not support an on/off switch.");
         var current=await system.Read(op);
         if (current.Exists && op.Kind == ActionKind.Registry && current.Kind != "DWord") throw new InvalidOperationException("Unexpected existing registry type; refusing to overwrite.");
-        return new(op,current,new(true,op.Kind == ActionKind.PowerPlan ? op.Target : op.Value, op.Kind == ActionKind.PowerPlan ? "Guid" : "DWord"));
+        if(op.CanToggle&&current.Exists&&current.Value!=op.Value&&current.Value!=op.DisabledValue) throw new InvalidOperationException("This setting has an unrecognized value. Inspect it before changing it.");
+        return new(op,current,new(true,op.Kind == ActionKind.PowerPlan ? op.Target : enabled ? op.Value : op.DisabledValue, op.Kind == ActionKind.PowerPlan ? "Guid" : "DWord"),enabled);
     }
     public async Task<ChangeRecord?> Apply(ActionPreview preview, HardwareSnapshot hardware, string session)
     {
@@ -72,7 +74,7 @@ public sealed class OperationEngine(ISystemSettings system, JsonStore store)
         try
         {
             var op=Catalog.All.Single(o=>o.Id==preview.Operation.Id);
-            var fresh=await Preview(op,hardware);
+            var fresh=await Preview(op,hardware,preview.Enabled);
             if (fresh != preview) throw new InvalidOperationException("Configuration changed since preview. Review a new preview.");
             if (fresh.Current == fresh.Proposed) return null;
             var changes=History;

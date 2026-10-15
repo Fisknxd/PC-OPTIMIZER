@@ -43,8 +43,9 @@ public sealed record Gpu(string Name, Vendor Vendor, string Driver);
 public sealed record SettingValue(bool Exists, string? Value, string Kind = "DWord");
 public sealed record Optimization(string Id, string Name, string Category, string Description,
     string Benefit, string Evidence, Risk Risk, ActionKind Kind, string Target, string? Value = null,
-    bool Admin = false, bool Restart = false, Vendor Vendor = Vendor.Unknown, bool Smart = false)
+    bool Admin = false, bool Restart = false, Vendor Vendor = Vendor.Unknown, bool Smart = false, string? DisabledValue = null)
 {
+    public bool CanToggle => Kind == ActionKind.Registry && Value != null && DisabledValue != null;
     public bool Reversible => Kind is ActionKind.Registry or ActionKind.PowerPlan;
     public string? Incompatibility(HardwareSnapshot h) => !h.WindowsSupported ? "Requires Windows 10 22H2 or Windows 11 (build 19045+)." :
         Vendor != Vendor.Unknown && !h.Has(Vendor) ? $"No {Vendor} GPU detected." :
@@ -55,7 +56,7 @@ public sealed record Optimization(string Id, string Name, string Category, strin
         "X3D detected: retain supported AMD chipset scheduler/parking behavior." :
         Vendor != Vendor.Unknown ? $"{Vendor} GPU detected; check game and driver feature support." : Description);
 }
-public sealed record ActionPreview(Optimization Operation, SettingValue Current, SettingValue Proposed);
+public sealed record ActionPreview(Optimization Operation, SettingValue Current, SettingValue Proposed, bool Enabled = true);
 public sealed record ChangeRecord
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
@@ -71,7 +72,7 @@ public sealed record ChangeRecord
     public string Feedback { get; set; } = "Unrated";
 }
 public sealed record AuditEvent(DateTimeOffset Time, string Kind, string Subject, string Result);
-public sealed record Preferences(string Mode = "Safe", bool ShowAdvanced = false, string GamingGpu = "Automatic");
+public sealed record Preferences(string Mode = "Safe", bool ShowAdvanced = false, string GamingGpu = "Automatic", string[]? Favorites = null, bool TipsDismissed = false);
 
 public static class HardwareRules
 {

@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -14,7 +15,7 @@ namespace FrameForge.App;
 public sealed partial class MainWindow : Window
 {
     readonly JsonStore store;
-    readonly WindowsSettings system=new();
+    readonly ISystemSettings system;
     readonly OperationEngine engine;
     readonly AppViewModel vm=new();
     readonly StackPanel body=new();
@@ -23,20 +24,20 @@ public sealed partial class MainWindow : Window
     readonly TextBox search=new() { Width=330,Tag="Search features, categories, or GPU…",ToolTip="Search features, descriptions, categories and GPU vendors",VerticalContentAlignment=VerticalAlignment.Center };
     readonly Dictionary<string,Button> navigation=[];
     string page="Dashboard";
-    string query="",filter="All";
+    string query="",filter="Quick switches";
     Preferences preferences;
     bool scanned;
-    public MainWindow(JsonStore store,bool autoScan=true)
+    public MainWindow(JsonStore store,bool autoScan=true,ISystemSettings? settings=null)
     {
-        this.store=store; engine=new(system,store); preferences=store.Load("preferences.json",()=>new Preferences());
+        this.store=store; system=settings??new WindowsSettings(); engine=new(system,store); preferences=store.Load("preferences.json",()=>new Preferences());
         SetResourceReference(BackgroundProperty,"CanvasBrush"); SetResourceReference(ForegroundProperty,"TextBrush");
         FontFamily=new FontFamily("Segoe UI"); FontSize=15;
         UseLayoutRounding=true; SnapsToDevicePixels=true;
-        Title="FrameForge 0.1.1 • Windows gaming toolkit"; Width=1280; Height=850; MinWidth=940; MinHeight=650; WindowStartupLocation=WindowStartupLocation.CenterScreen; DataContext=vm;
+        Title="FrameForge 0.1.2 • Windows gaming toolkit"; Width=1280; Height=850; MinWidth=940; MinHeight=650; WindowStartupLocation=WindowStartupLocation.CenterScreen; DataContext=vm;
         var shell=new Grid(); shell.ColumnDefinitions.Add(new(){Width=new(225)}); shell.ColumnDefinitions.Add(new()); Content=shell;
         var side=new DockPanel { Background=Brush("#101A2B"),Margin=new(0) }; shell.Children.Add(side);
         var brand=new StackPanel { Margin=new(22,28,16,30) }; brand.Children.Add(Text("◈ FRAMEFORGE",21,"#5EE0BA",true)); brand.Children.Add(Text("A clearer path to play",12,"#8FA2BC")); DockPanel.SetDock(brand,Dock.Top); side.Children.Add(brand);
-        var footer=Text("LOCAL BY DESIGN\nNo telemetry. No magic FPS claims.\nv0.1.1 · Engineering preview",11,"#8FA2BC"); footer.Margin=new(22,12,16,22); DockPanel.SetDock(footer,Dock.Bottom); side.Children.Add(footer);
+        var footer=Text("LOCAL BY DESIGN\nNo telemetry. No magic FPS claims.\nv0.1.2 · Engineering preview",11,"#8FA2BC"); footer.Margin=new(22,12,16,22); DockPanel.SetDock(footer,Dock.Bottom); side.Children.Add(footer);
         var nav=new StackPanel { Margin=new(12,0,10,0) }; side.Children.Add(nav);
         foreach(var item in new[]{("Dashboard","◫"),("Optimize","⚡"),("Debloat","▦"),("Gaming","◇"),("Monitor","▥"),("Cleanup","⌁"),("Tools","⊞"),("Quality of Life","◐"),("Restore","↶"),("Settings","⚙")})
         {
@@ -46,15 +47,24 @@ public sealed partial class MainWindow : Window
         workspace.RowDefinitions.Add(new(){Height=GridLength.Auto}); workspace.RowDefinitions.Add(new(){Height=GridLength.Auto}); workspace.RowDefinitions.Add(new()); workspace.RowDefinitions.Add(new(){Height=GridLength.Auto});
         var top=new DockPanel(); workspace.Children.Add(top);
         var controls=new StackPanel { Orientation=Orientation.Horizontal }; DockPanel.SetDock(controls,Dock.Right); controls.Children.Add(Button("Scan PC",()=>Run(Scan))); controls.Children.Add(Button("Smart Optimize",()=>Run(Smart))); top.Children.Add(controls); top.Children.Add(heading);
-        search.TextChanged+=(_,_)=> { query=search.Text; if(page!="Optimize") Go("Optimize"); else Render(); }; search.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,"Global feature search");
+        search.TextChanged+=(_,_)=> { query=search.Text; if(!string.IsNullOrWhiteSpace(query)) filter="All features"; if(page!="Optimize") Go("Optimize"); else Render(); }; search.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,"Global feature search");
         var searchbar=new DockPanel { Margin=new(0,14,0,12) }; DockPanel.SetDock(search,Dock.Left); searchbar.Children.Add(search); searchbar.Children.Add(Text("Find a setting or hardware recommendation",13,"#BDCCE0")); Grid.SetRow(searchbar,1); workspace.Children.Add(searchbar);
         var scroll=new ScrollViewer { VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Content=body }; Grid.SetRow(scroll,2); workspace.Children.Add(scroll);
         var statusArea=new StackPanel { Margin=new(0,12,0,0) };
         var progress=new ProgressBar { IsIndeterminate=true,Margin=new(0,0,0,8) }; progress.SetBinding(VisibilityProperty,new Binding(nameof(AppViewModel.Busy)) { Converter=new BooleanToVisibilityConverter() }); statusArea.Children.Add(progress);
-        var status=new TextBlock { FontSize=13,Foreground=Brush("#BDCCE0"),TextWrapping=TextWrapping.Wrap }; status.SetBinding(TextBlock.TextProperty,new Binding(nameof(AppViewModel.Status))); statusArea.Children.Add(status); Grid.SetRow(statusArea,3); workspace.Children.Add(statusArea);
+        var status=new TextBlock { FontSize=13,Foreground=Brush("#BDCCE0"),TextWrapping=TextWrapping.Wrap }; status.SetBinding(TextBlock.TextProperty,new Binding(nameof(AppViewModel.Status))); statusArea.Children.Add(status);
+        undoButton.Click+=(_,_)=>Run(UndoLastChange); statusArea.Children.Add(undoButton);
+        Grid.SetRow(statusArea,3); workspace.Children.Add(statusArea);
         Closing+=(_,e)=> { if(vm.Busy) { e.Cancel=true; vm.Status="Wait for the current action to finish before closing; changes may be in progress."; } };
         Go("Dashboard");
         if(autoScan) Loaded+=(_,_)=> { if(!scanned&&!vm.Busy) Run(Scan); };
+        Activated+=(_,_)=> { if(scanned&&!vm.Busy) Run(async()=> { await RefreshFeatureStates(); Render(); }); };
+        PreviewKeyDown+=(_,e)=>
+        {
+            if(e.Key==Key.K&&Keyboard.Modifiers==ModifierKeys.Control) { search.Focus(); search.SelectAll(); e.Handled=true; }
+            if(e.Key==Key.Escape&&search.IsKeyboardFocusWithin) { search.Clear(); e.Handled=true; }
+            if(e.Key==Key.Z&&Keyboard.Modifiers==ModifierKeys.Control&&Keyboard.FocusedElement is not TextBox) { Run(UndoLastChange); e.Handled=true; }
+        };
     }
     static SolidColorBrush Brush(string color)=>new((Color)ColorConverter.ConvertFromString(color));
     static TextBlock Text(string text,double size=14,string color="#E9EFF8",bool bold=false)=>new() { Text=text,FontSize=Math.Max(13,size<16?size+1:size),LineHeight=Math.Max(13,size<16?size+1:size)*1.45,Foreground=Brush(color=="#8FA2BC"?"#BDCCE0":color=="#A7B7CD"?"#C3D0E2":color),FontWeight=bold?FontWeights.SemiBold:FontWeights.Normal,TextWrapping=TextWrapping.Wrap,Margin=new(0,4,0,6),VerticalAlignment=VerticalAlignment.Center };
@@ -73,6 +83,7 @@ public sealed partial class MainWindow : Window
     void Render()
     {
         body.Children.Clear();
+        undoButton.IsEnabled=undoId!=null||engine.History.Any(r=>r.Status=="Applied");
         switch(page)
         {
             case "Dashboard": Dashboard(); break;
@@ -103,15 +114,16 @@ public sealed partial class MainWindow : Window
     async Task Scan()
     {
         vm.Status="Reading Windows hardware and configuration… No settings are changed.";
-        vm.Hardware=await Scanner.Scan(); scanned=true; Render();
+        vm.Hardware=await Scanner.Scan(); scanned=true; await RefreshFeatureStates(); Render();
         vm.Status=$"Scan completed {DateTime.Now:t} • {vm.Hardware.Warnings.Count} unavailable sources. See Dashboard for details. No settings changed.";
     }
     void RequireScan() { if(!scanned) throw new InvalidOperationException("Scan this PC first so compatibility can be checked."); }
     void Dashboard()
     {
         var h=vm.Hardware;
-        var hero=Panel(Text("Know your system. Change with confidence.",26,"#E9EFF8",true),Text("Review real configuration, understand each tradeoff, and keep a path back. No optimization runs until you approve it.",14,"#A7B7CD"));
+        var hero=Panel(Text("Your PC, made simpler.",26,"#E9EFF8",true),Text("Flip a switch, find a Windows setting, or clean up safely. Your previous settings are saved automatically.",14,"#A7B7CD"));
         body.Children.Add(Card(hero));
+        body.Children.Add(Row(Button("⚡ Quick switches",()=> {filter="Quick switches";Go("Optimize");}),Button("⌁ Free up space",()=>Go("Cleanup")),Button("◇ Game profiles",()=>Go("Gaming")),Button("↶ Restore changes",()=>Go("Restore"))));
         var stats=new Grid(); for(int i=0;i<3;i++) stats.ColumnDefinitions.Add(new());
         UIElement Metric(string label,string value,string note)=>Card(Panel(Text(label.ToUpperInvariant(),11,"#8FA2BC"),Text(value,27,"#5EE0BA",true),Text(note,12,"#A7B7CD")));
         var cards=new[]{Metric("CPU sample",h.CpuPercent is {} c?$"{c:F0}%":"Unavailable",h.Cpu),Metric("Memory available",GiB(h.AvailableMemory),$"Installed: {GiB(h.TotalMemory)}"),Metric("Verified changes",engine.History.Count(x=>x.Status=="Applied").ToString(),"Journal records; not a performance score")};
@@ -122,35 +134,13 @@ public sealed partial class MainWindow : Window
         foreach(var finding in findings)
             body.Children.Add(Card(Panel(Text(finding.Title,18,finding.Attention?"#FFD08A":"#5EE0BA",true),Text(finding.Detail,14,"#C3D0E2"),Button("Review supported controls",()=>Run(()=>Handle(Catalog.All.Single(o=>o.Id==finding.OperationId)))))));
         var opportunities=Catalog.Search("","Recommended",h).Take(4).ToList();
-        foreach(var o in opportunities) body.Children.Add(Card(Panel(Text(o.Name,17,"#E9EFF8",true),Text(o.Reason(h),13,"#A7B7CD"),Button(o.Reversible?"Review change":"Open supported controls",()=>Run(()=>Handle(o))))));
+        foreach(var o in opportunities) body.Children.Add(FeatureCard(o));
         if(scanned&&h.Cpu.Contains("X3D",StringComparison.OrdinalIgnoreCase)) Add("X3D-aware guidance","Use supported AMD chipset drivers and OEM power/scheduler behavior. FrameForge will not modify core parking, affinity or scheduler registry values.");
         if(scanned&&h.TotalMemory is >0 and <16L*1024*1024*1024) Add("Memory pressure review","Less than 16 GiB RAM detected. Inspect optional startup apps and measured working sets. Process count alone does not prove a gaming performance problem.");
-        if(h.Warnings.Count>0) Add("Unavailable scan sources",string.Join("\n",h.Warnings));
+        if(h.Warnings.Count>0) body.Children.Add(new Expander { Header=$"{h.Warnings.Count} scan sources unavailable — details",Content=Text(string.Join("\n",h.Warnings),13,"#BDCCE0") });
         var recent=engine.History.TakeLast(3).Reverse(); Add("Recent changes",recent.Any()?string.Join("\n",recent.Select(r=>$"{r.Time.ToLocalTime():g} • {r.Name} • {r.Status}")):"No changes recorded. Backups are created before reversible actions.");
     }
-    void Optimize(bool qol)
-    {
-        Add(qol?"Convenience, clearly labeled":"A focused, evidence-aware catalog",qol?"Explorer and theme changes are convenience features. They carry no FPS claim.":"Direct changes provide previews and undo. Review actions open supported Windows/vendor controls; FrameForge cannot verify changes you make there. Unimplemented experimental tweaks are unavailable.");
-        var filters=new ComboBox { ItemsSource=new[]{"All","Recommended","Safe","Advanced","Requires restart","AMD","NVIDIA","Applied","Not applicable"},SelectedItem=filter };
-        var target=new StackPanel();
-        void Draw()
-        {
-            target.Children.Clear(); var applied=new HashSet<string>(engine.History.Where(r=>r.Status=="Applied").Select(r=>r.OperationId));
-            var ops=Catalog.Search(query,filter,vm.Hardware,applied).Where(o=>!qol||o.Category is "Windows Quality of Life" or "Registry Configuration").ToList();
-            if(ops.Count==0) target.Children.Add(Text("No matching features. Try another search or filter.",14,"#A7B7CD"));
-            foreach(var o in ops)
-            {
-                var incompatibility=o.Incompatibility(vm.Hardware);
-                var modeReason=ModeReason(o);
-                var reason=incompatibility??modeReason;
-                var state=incompatibility!=null?"Not applicable":modeReason!=null?(o.Risk==Risk.Experimental?"Requires Advanced mode":"Requires Balanced mode"):applied.Contains(o.Id)?"Applied (journal)":"Available";
-                var b=Button(o.Reversible?"Preview change":"Open controls",()=>Run(()=>Handle(o))); b.IsEnabled=reason==null;
-                var details=new Expander { Header="Evidence, compatibility and restore details",Content=Text($"Benefit: {o.Benefit}\nEvidence: {o.Evidence}\nAdministrator: {(o.Admin?"required":"not required")} • Restart/refresh: {(o.Restart?"may be needed":"not required")}\nReversible: {(o.Reversible?"yes, with conflict checks":"external controls; manual reversal")}",13,"#BDCCE0") };
-                target.Children.Add(Card(Panel(Text(o.Name,19,"#F1F5FC",true),Text($"{o.Category}  ·  {o.Risk} risk  ·  {state}",13,reason!=null?"#FFD08A":"#5EE0BA"),Text(o.Description,14,"#C3D0E2"),details,reason==null?b:Text(reason,14,"#FFD08A"))));
-            }
-        }
-        filters.SelectionChanged+=(_,_)=> { filter=filters.SelectedItem as string??"All"; Draw(); }; body.Children.Add(filters); body.Children.Add(target); Draw();
-    }
+    void Optimize(bool qol)=>FeatureLibrary(qol);
     string? ModeReason(Optimization o)=>o.Risk switch
     {
         Risk.Experimental when preferences.Mode!="Advanced"=>"Switch to Advanced mode to review this experiment.",
@@ -221,9 +211,19 @@ public sealed partial class MainWindow : Window
     void Debloat()
     {
         Add("Remove deliberately","Current-user Store packages only. No apps are preselected. Frameworks, dependencies, core components and unknown packages are protected. Traditional programs can be managed in Windows Installed apps. Size, background activity and package startup status are Unavailable.");
-        var list=new ListBox { Height=340 }; var details=Text("Select a package after scanning.",13,"#A7B7CD"); List<InstalledPackage> all=[];
+        var list=new ListBox { Height=340 }; var details=Text("Scan apps, then select one to see what it does and whether removal is supported.",13,"#A7B7CD"); List<InstalledPackage> all=[];
+        var appSearch=new TextBox {Tag="Search apps by name or publisher",MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left};
+        var showProtected=new CheckBox {Content="Show protected and unclassified apps",IsChecked=false};
+        var appCount=Text("No app scan yet.",13,"#BDCCE0");
+        void DrawApps()
+        {
+            var matches=all.Where(p=>showProtected.IsChecked==true||DebloatPolicy.CanRemove(p,all)).Where(p=>$"{p.Name} {p.Publisher}".Contains(appSearch.Text,StringComparison.OrdinalIgnoreCase)).OrderBy(p=>p.Name).Select(p=>new PackageRow(p,DebloatPolicy.Classify(p,all))).ToList();
+            list.ItemsSource=matches;appCount.Text=$"{matches.Count} shown / {all.Count} scanned. Protected components are never removed by FrameForge.";
+        }
+        appSearch.TextChanged+=(_,_)=>DrawApps();showProtected.Checked+=(_,_)=>DrawApps();showProtected.Unchecked+=(_,_)=>DrawApps();
         list.SelectionChanged+=(_,_)=> { if(list.SelectedItem is PackageRow row) { var p=row.Package; details.Text=$"{p.Name}\nPublisher: {p.Publisher}\nPackage: {p.FullName}\nClassification: {DebloatPolicy.Classify(p,all)}\nDependencies: {string.Join(", ",p.Dependencies)}\nFramework: {p.Framework} • Non-removable: {p.NonRemovable}\nRemoval affects this Windows user only. Reinstallation is not guaranteed. Review whether games or workflows use this app."; } };
-        body.Children.Add(Row(Button("Scan installed packages",()=>Run(async ()=> { all=await Packages.Inventory(); list.ItemsSource=all.OrderBy(p=>p.Name).Select(p=>new PackageRow(p,DebloatPolicy.Classify(p,all))).ToList(); vm.Status=$"Read {all.Count} packages. Nothing was removed."; })),Button("Open Installed apps",()=>Run(()=>Handle(Catalog.All.Single(o=>o.Id=="memory"))))));
+        body.Children.Add(Row(Button("Scan installed packages",()=>Run(async ()=> { all=await Packages.Inventory(); DrawApps(); vm.Status=$"Read {all.Count} packages. Nothing was removed."; })),Button("Open Installed apps",()=>Run(()=>Handle(Catalog.All.Single(o=>o.Id=="memory"))))));
+        body.Children.Add(appSearch);body.Children.Add(showProtected);body.Children.Add(appCount);
         body.Children.Add(list); body.Children.Add(Card(details));
         body.Children.Add(Button("Review removal of selected package",()=>Run(async ()=>
         {
@@ -233,7 +233,7 @@ public sealed partial class MainWindow : Window
             store.Save("package-inventory.json",all); store.Audit("Removal prepared",row.Package.FullName,"Approved; no guaranteed rollback");
             try { await Packages.Remove(row.Package); store.Audit("Removal",row.Package.FullName,"Verified absent"); }
             catch(Exception e) { store.Audit("Removal",row.Package.FullName,"Failed: "+e.Message); throw; }
-            all=await Packages.Inventory(); list.ItemsSource=all.OrderBy(p=>p.Name).Select(p=>new PackageRow(p,DebloatPolicy.Classify(p,all))).ToList(); details.Text="Removal verified. Use Restore to view the audit record; uninstall is not reversible by FrameForge."; vm.Status="Package removal verified.";
+            all=await Packages.Inventory(); DrawApps(); details.Text="Removal verified. Use Restore to view the audit record; uninstall is not reversible by FrameForge."; vm.Status="Package removal verified.";
         })));
     }
     sealed record PackageRow(InstalledPackage Package,string Classification) { public override string ToString()=>$"[{Classification}]  {Package.Name}"; }
@@ -250,8 +250,10 @@ public sealed partial class MainWindow : Window
         IReadOnlyList<CleanupFile> files=[]; var service=new CleanupService(temp);
         var summary=Text("No scan performed.",14,"#5EE0BA"); var list=new ListBox { Height=340,SelectionMode=SelectionMode.Extended };
         body.Children.Add(Row(Button("Preview old temporary files",()=>Run(async ()=> { files=await Task.Run(()=>service.Preview(DateTime.UtcNow)); list.ItemsSource=files.Select(f=>new FileRow(f)).ToList(); summary.Text=$"{files.Count} candidate files • {files.Sum(f=>f.Bytes)/1048576d:F1} MiB. Select individual rows (Ctrl/Shift for multiple). Scan is capped at 50,000 files; unavailable/locked directories are skipped."; vm.Status="Cleanup preview complete; no files deleted."; })),Button("Open Storage Sense",()=>Run(()=>Handle(Catalog.All.Single(o=>o.Id=="storage"))))));
-        body.Children.Add(summary); body.Children.Add(list);
-        body.Children.Add(Button("Delete selected previewed files…",()=>Run(async ()=>
+        var selection=Text("No files selected.",13,"#BDCCE0");
+        list.SelectionChanged+=(_,_)=> {var selected=list.SelectedItems.Cast<FileRow>().ToList();selection.Text=$"{selected.Count} selected • {selected.Sum(x=>x.File.Bytes)/1048576d:F1} MiB";};
+        body.Children.Add(summary);body.Children.Add(Row(Button("Select all listed files",()=>list.SelectAll()),Button("Clear selection",()=>list.UnselectAll()),selection));body.Children.Add(list);
+        body.Children.Add(Button("Clean selected files…",()=>Run(async ()=>
         {
             var chosen=list.SelectedItems.Cast<FileRow>().Select(x=>x.File).ToList();
             if(chosen.Count==0) throw new InvalidOperationException("Select files from the preview first.");
@@ -338,10 +340,11 @@ public sealed partial class MainWindow : Window
     {
         Add("Preferences and local data","FrameForge stores JSON in your LocalAppData folder. No account, analytics, background service or automatic updater. Logs/history may contain hardware names, paths and package names. No network request occurs until an official link or diagnostic is selected.");
         var mode=new ComboBox { ItemsSource=new[]{"Safe","Balanced","Advanced"},SelectedItem=preferences.Mode };
-        mode.SelectionChanged+=(_,_)=> { preferences=preferences with {Mode=mode.SelectedItem as string??"Safe"}; store.Save("preferences.json",preferences); vm.Status="Mode saved. Explicit review and all compatibility rules still apply."; };
+        mode.SelectionChanged+=(_,_)=> { preferences=preferences with {Mode=mode.SelectedItem as string??"Safe"}; store.Save("preferences.json",preferences); vm.Status="Mode saved. Switches apply on click with automatic backups. Experimental actions still need review."; };
         body.Children.Add(Text("Optimization review mode",16)); body.Children.Add(mode);
-        Add("Modes","Safe: low-risk changes. Balanced: review optional convenience changes individually. Advanced: power-plan experiments exposed individually with thermal/compatibility checks. Smart Optimize only proposes the implemented safe, reversible conveniences in every mode; no experimental action is applied automatically.");
+        Add("Modes","Safe: low-risk switches. Balanced: also unlocks optional user preferences. Advanced: adds reviewed power experiments. Switches apply when clicked and are backed up automatically. Smart Optimize still previews its plan before applying anything.");
+        Add("Handy shortcuts","Ctrl+K: search features. Escape: clear search while typing there. Ctrl+Z outside text fields: undo the last saved change. Tap ☆ to pin a feature to Favorites. Undo restores the previous value; switching Off explicitly disables that setting.");
         Add("Data directory",store.Root+"\nKeep backups before moving/deleting this folder. A corrupt history file blocks startup rather than discarding originals. Close FrameForge, preserve all files and recover the .bak manually if necessary. No history import or script execution from configuration is supported.");
-        Add("Release status and unavailable capabilities","0.1.1 engineering preview. Windows runtime acceptance is required before production use. Live FPS, temperatures, reliable dedicated VRAM, GPU utilization, automatic driver updates, scheduler, Gaming Session Mode, automatic game-config edits and restore-point creation are unavailable. Cleanup and package removal cannot be undone by FrameForge.");
+        Add("Release status and unavailable capabilities","0.1.2 engineering preview. Windows runtime acceptance is required before production use. Live FPS, temperatures, reliable dedicated VRAM, GPU utilization, automatic driver updates, scheduler, Gaming Session Mode, automatic game-config edits and restore-point creation are unavailable. Cleanup and package removal cannot be undone by FrameForge.");
     }
 }

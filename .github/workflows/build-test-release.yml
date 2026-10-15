@@ -70,10 +70,12 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           cat > /tmp/frameforge-release-notes.md <<'NOTES'
-          FrameForge Windows x64 engineering preview.
+          FrameForge Windows x64 engineering preview with simpler controls.
+
+          New: one-click On/Off switches for supported Windows preferences, automatic original-value backups, visible Undo, Favorites, quick navigation, app search and easier cleanup selection. External Settings and irreversible operations remain explicit actions.
 
           Download FrameForge-Desktop.zip and extract it into Downloads. Close the old FrameForge app, then run Update-FrameForge.cmd. It updates the existing application folder, preserves the previous version in a dated backup, and leaves LocalAppData settings/history untouched. A fresh Desktop installation is also supported.
 
-          CI builds the application, runs portable tests, a nondestructive Windows WPF launch/close smoke test, and menu/dropdown contrast checks with screenshots. Real system modifications, rollback on supported Windows versions, and physical AMD/NVIDIA/Intel hardware acceptance remain pending. Do not treat this preview as production-validated. No FPS improvement has been established. Test mutating features in disposable Windows VMs first.
+          CI builds the application, runs portable tests, a nondestructive Windows WPF launch/close smoke test, and menu/dropdown contrast checks with screenshots. WPF switch/Undo/favorite interactions are also checked with an isolated in-memory settings adapter; this does not validate real system modifications. Real system modifications, rollback on supported Windows versions, and physical AMD/NVIDIA/Intel hardware acceptance remain pending. Do not treat this preview as production-validated. No FPS improvement has been established. Test mutating features in disposable Windows VMs first.
           NOTES
           gh release create "$RELEASE_TAG" release/*.zip release/SHA256SUMS.txt --prerelease --title "FrameForge $RELEASE_TAG — Engineering Preview" --notes-file /tmp/frameforge-release-notes.md

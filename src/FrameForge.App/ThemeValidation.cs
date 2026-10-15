@@ -1,6 +1,10 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
+using FrameForge.Core;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -32,6 +36,48 @@ public sealed partial class MainWindow
         }
         if(dropdowns<4) throw new InvalidDataException("Expected Optimize, Gaming and Settings dropdowns to be exercised.");
         File.WriteAllLines(Path.Combine(output,"report.txt"),report.Append($"{dropdowns} dropdowns checked; foreground/background contrast >= 4.5:1. No system changes executed."));
+    }
+    internal async Task ValidateFeatureInteractions(string output)
+    {
+        if(system is not UiTestSettings) throw new InvalidOperationException("Interaction checks require the isolated test adapter.");
+        Directory.CreateDirectory(output);
+        vm.Hardware=new HardwareSnapshot {WindowsSupported=true,Laptop=false};scanned=true;
+        preferences=preferences with {Mode="Balanced",TipsDismissed=true};
+        await RefreshFeatureStates();filter="Quick switches";Go("Optimize");UpdateLayout();
+        var results=new List<string>();
+        foreach(var op in Catalog.All.Where(o=>o.CanToggle))
+        {
+            var toggle=Descendants<ToggleButton>(this).Single(t=>Equals(t.Tag,op.Id));
+            if(!toggle.IsEnabled) throw new InvalidDataException("Expected an available switch: "+op.Id);
+            var peer=new ToggleButtonAutomationPeer(toggle);
+            ((IToggleProvider)peer.GetPattern(PatternInterface.Toggle)).Toggle();
+            await WaitForAction();
+            if(featureStates[op.Id].Enabled!=true||engine.History.Last().Status!="Applied") throw new InvalidDataException("Enable click failed: "+op.Id);
+            toggle=Descendants<ToggleButton>(this).Single(t=>Equals(t.Tag,op.Id));
+            ((IToggleProvider)new ToggleButtonAutomationPeer(toggle).GetPattern(PatternInterface.Toggle)).Toggle();
+            await WaitForAction();
+            if(featureStates[op.Id].Enabled!=false) throw new InvalidDataException("Disable click failed: "+op.Id);
+            ((IInvokeProvider)new ButtonAutomationPeer(undoButton).GetPattern(PatternInterface.Invoke)).Invoke();
+            await WaitForAction();
+            if(featureStates[op.Id].Enabled!=true) throw new InvalidDataException("Undo click failed: "+op.Id);
+            results.Add(op.Id+": actual WPF enable, disable and Undo clicks passed using the fake system adapter.");
+        }
+        var favorite=Descendants<Button>(this).Single(b=>Equals(b.GetValue(System.Windows.Automation.AutomationProperties.AutomationIdProperty),"favorite-dark"));
+        ((IInvokeProvider)new ButtonAutomationPeer(favorite).GetPattern(PatternInterface.Invoke)).Invoke();
+        await Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);
+        if(!Favorite("dark")||store.Load("preferences.json",()=>new Preferences()).Favorites?.Contains("dark")!=true) throw new InvalidDataException("Favorite click did not persist.");
+        filter="Favorites";Render();UpdateLayout();if(Descendants<ToggleButton>(this).Count(t=>t.Tag is string)==0) throw new InvalidDataException("Favorites filter lost the saved switch.");
+        results.Add("Favorites: pin click, persistence and filter passed.");
+        filter="Quick switches";Render();
+        File.WriteAllLines(Path.Combine(output,"interactions.txt"),results.Append("All system mutations were redirected to the in-memory test adapter."));
+    }
+    async Task WaitForAction()
+    {
+        await Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);
+        var until=DateTime.UtcNow.AddSeconds(5);
+        while(vm.Busy&&DateTime.UtcNow<until) await Task.Delay(20);
+        if(vm.Busy) throw new TimeoutException("A switch action did not finish.");
+        UpdateLayout();
     }
     static IEnumerable<T> Descendants<T>(DependencyObject parent) where T:DependencyObject
     {
