@@ -143,10 +143,10 @@ public static class Scanner
             catch(Exception e) { w.Add("Processes: "+e.Message); }
             double? uptime=null;
             try { if(Text(os,"LastBootUpTime")!="Unavailable") uptime=(DateTime.Now-ManagementDateTimeConverter.ToDateTime(Text(os,"LastBootUpTime"))).TotalHours; } catch(ArgumentOutOfRangeException) { }
-            var volumes=new List<string>();
+            var volumes=new List<string>(); var storageVolumes=new List<StorageVolume>();
             foreach(var d in DriveInfo.GetDrives())
             {
-                try { if(d.IsReady&&d.DriveType==DriveType.Fixed) volumes.Add($"{d.Name} • {d.AvailableFreeSpace/1073741824d:F1} GiB free / {d.TotalSize/1073741824d:F1} GiB"); } catch(IOException e) { w.Add(e.Message); }
+                try { if(d.IsReady&&d.DriveType==DriveType.Fixed) { volumes.Add($"{d.Name} • {d.AvailableFreeSpace/1073741824d:F1} GiB free / {d.TotalSize/1073741824d:F1} GiB"); storageVolumes.Add(new(d.Name,d.TotalSize,d.AvailableFreeSpace)); } } catch(IOException e) { w.Add(e.Message); }
             }
             var build=(int)(Num(os,"BuildNumber")??0);
             return new HardwareSnapshot {
@@ -160,7 +160,7 @@ public static class Scanner
                 MemoryModules=mem.Select(m=>$"{Text(m,"DeviceLocator")} • {(Num(m,"Capacity") is {} cap ? $"{cap/1073741824d:F1} GiB":"Unavailable")} • configured speed {Text(m,"ConfiguredClockSpeed")} MHz (firmware reported)").ToList(),
                 Displays=gpu.Select(g=>$"{Text(g,"Name")} • reported {Text(g,"CurrentHorizontalResolution")} × {Text(g,"CurrentVerticalResolution")} • {Text(g,"CurrentRefreshRate")} Hz (WMI; per-monitor features unavailable)").ToList(),
                 Disks=disks.Select(d=>$"{Text(d,"FriendlyName")} • bus {Bus(Num(d,"BusType"))} • media {Media(Num(d,"MediaType"))} • health {Health(Num(d,"HealthStatus"))} • {(Num(d,"Size") is {} size ? $"{size/1073741824d:F1} GiB" : "Unavailable")}").ToList(),
-                Volumes=volumes,Startup=startup.Select(s=>$"{Text(s,"Name")} • {Text(s,"Location")} • {Text(s,"User")}").ToList(),
+                Volumes=volumes,StorageVolumes=storageVolumes,Startup=startup.Select(s=>$"{Text(s,"Name")} • {Text(s,"Location")} • {Text(s,"User")}").ToList(),
                 Network=network.Select(n=>$"{Text(n,"Description")} • IP {Text(n,"IPAddress")} • DNS {Text(n,"DNSServerSearchOrder")} • DHCP {Text(n,"DHCPEnabled")}").Concat(NetworkInterface.GetAllNetworkInterfaces().Where(n=>n.OperationalStatus==OperationalStatus.Up).Select(n=>$"{n.Name} • {n.NetworkInterfaceType} • reported link {n.Speed/1000000} Mbps (not throughput)")).ToList(),
                 Processes=procs,ProcessCount=count,UptimeHours=uptime,Security=security.Select(s=>$"{Text(s,"displayName")} • raw provider state {Text(s,"productState")} (not a security audit)").ToList(),Warnings=w
             };

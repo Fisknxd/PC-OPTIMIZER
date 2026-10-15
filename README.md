@@ -2,7 +2,7 @@
 
 A native Windows gaming and system-management toolkit built with .NET 10 and WPF. FrameForge reads real hardware data, offers reviewed configuration changes, and preserves the original state of supported settings. It never promises a universal FPS increase.
 
-**Status: 0.1.0 engineering preview.** Cross-compilation and portable tests do not establish Windows runtime safety or MVP acceptance. Run the [Windows acceptance checklist](docs/WINDOWS-ACCEPTANCE.md) in disposable VMs before using mutating features on a primary PC. See [scope and limitations](docs/STATUS.md). Advanced phases remain gated on MVP acceptance.
+**Status: 0.1.1 engineering preview.** Cross-compilation and portable tests do not establish Windows runtime safety or MVP acceptance. Run the [Windows acceptance checklist](docs/WINDOWS-ACCEPTANCE.md) in disposable VMs before using mutating features on a primary PC. See [scope and limitations](docs/STATUS.md). Advanced phases remain gated on MVP acceptance.
 
 ## What works in the implementation
 
@@ -32,7 +32,7 @@ On this Linux cloud machine, first `source scripts/dev-env.sh`; test only the po
 bash scripts/build-release.sh
 ```
 
-On Windows, `pwsh -File scripts/build-release.ps1`. Both produce `artifacts/FrameForge-Desktop.zip` (all files plus a helper that copies the extracted folder to Desktop without overwriting), `artifacts/FrameForge-Source.zip`, and `artifacts/FrameForge-Universal.zip`, a self-contained Windows x64 folder package, README, documentation, notices and SHA-256 manifest. Windows CI additionally launches and closes the WPF window with `--smoke-test` (no system writes). A smoke test is not functional acceptance.
+On Windows, `pwsh -File scripts/build-release.ps1`. Both produce `artifacts/FrameForge-Desktop.zip` (all files plus an update helper that preserves the previous application folder in a dated backup), `artifacts/FrameForge-Source.zip`, and `artifacts/FrameForge-Universal.zip`, a self-contained Windows x64 folder package, README, documentation, notices and SHA-256 manifest. Windows CI additionally launches and closes the WPF window with `--smoke-test` (no system writes). A smoke test is not functional acceptance.
 
 ## Safety and data
 
@@ -44,6 +44,7 @@ Start with **Scan PC**, review **Optimize**, and approve only changes you unders
 
 ## Documentation
 
+- [0.1.1 changes and pending checks](docs/UPDATE-0.1.1.md).
 - [Development plan](docs/PLAN.md) — architecture, risks, dependencies, milestones and acceptance gates.
 - [Evidence register](docs/EVIDENCE.md) — mechanisms, exact registry keys, vendor constraints and source limitations.
 - [Developer guide](docs/DEVELOPMENT.md) — extension contracts, tests and release procedure.

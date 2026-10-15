@@ -1,4 +1,4 @@
-FRAMEFORGE 0.1.0 — WINDOWS X64 ENGINEERING PREVIEW
+FRAMEFORGE 0.1.1 — WINDOWS X64 ENGINEERING PREVIEW
 
 WHAT IT DOES
 FrameForge inventories hardware and Windows configuration, presents reviewed
@@ -10,7 +10,11 @@ REQUIREMENTS / INSTALL
 Windows 10 22H2 (build 19045+) or Windows 11, x64. Use a Microsoft-supported
 OS/security configuration. No separate .NET runtime required for the ZIP.
 Allow at least 500 MB disk space and 4 GB RAM for basic use; gaming needs vary.
-Extract the ENTIRE ZIP to a local folder; run FrameForge.exe. Keep all DLLs
+Extract the ENTIRE ZIP into Downloads. Close the old app, then run
+Update-FrameForge.cmd to update the existing Desktop installation or choose
+an existing application folder. The old folder is preserved in a dated backup.
+LocalAppData settings and history are kept. For direct launch, open the inner
+FrameForge folder and run FrameForge.exe. Keep all DLLs
 and resources together. This is a portable folder, not a single-file EXE.
 The executable is unsigned; no publisher identity/signing is claimed.
 

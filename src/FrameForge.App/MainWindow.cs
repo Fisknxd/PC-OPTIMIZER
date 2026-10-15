@@ -11,7 +11,7 @@ using FrameForge.Windows;
 
 namespace FrameForge.App;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     readonly JsonStore store;
     readonly WindowsSettings system=new();
@@ -20,20 +20,23 @@ public sealed class MainWindow : Window
     readonly StackPanel body=new();
     readonly Grid workspace=new();
     readonly TextBlock heading=new() { FontSize=28,FontWeight=FontWeights.SemiBold };
-    readonly TextBox search=new() { Width=310,ToolTip="Search features, descriptions, categories and GPU vendors",VerticalContentAlignment=VerticalAlignment.Center };
+    readonly TextBox search=new() { Width=330,Tag="Search features, categories, or GPU…",ToolTip="Search features, descriptions, categories and GPU vendors",VerticalContentAlignment=VerticalAlignment.Center };
     readonly Dictionary<string,Button> navigation=[];
     string page="Dashboard";
     string query="",filter="All";
     Preferences preferences;
     bool scanned;
-    public MainWindow(JsonStore store)
+    public MainWindow(JsonStore store,bool autoScan=true)
     {
         this.store=store; engine=new(system,store); preferences=store.Load("preferences.json",()=>new Preferences());
-        Title="FrameForge • Windows gaming toolkit"; Width=1280; Height=850; MinWidth=940; MinHeight=650; WindowStartupLocation=WindowStartupLocation.CenterScreen; DataContext=vm;
+        SetResourceReference(BackgroundProperty,"CanvasBrush"); SetResourceReference(ForegroundProperty,"TextBrush");
+        FontFamily=new FontFamily("Segoe UI"); FontSize=15;
+        UseLayoutRounding=true; SnapsToDevicePixels=true;
+        Title="FrameForge 0.1.1 • Windows gaming toolkit"; Width=1280; Height=850; MinWidth=940; MinHeight=650; WindowStartupLocation=WindowStartupLocation.CenterScreen; DataContext=vm;
         var shell=new Grid(); shell.ColumnDefinitions.Add(new(){Width=new(225)}); shell.ColumnDefinitions.Add(new()); Content=shell;
         var side=new DockPanel { Background=Brush("#101A2B"),Margin=new(0) }; shell.Children.Add(side);
         var brand=new StackPanel { Margin=new(22,28,16,30) }; brand.Children.Add(Text("◈ FRAMEFORGE",21,"#5EE0BA",true)); brand.Children.Add(Text("A clearer path to play",12,"#8FA2BC")); DockPanel.SetDock(brand,Dock.Top); side.Children.Add(brand);
-        var footer=Text("LOCAL BY DESIGN\nNo telemetry. No magic FPS claims.\nv0.1 · Windows validation pending",11,"#8FA2BC"); footer.Margin=new(22,12,16,22); DockPanel.SetDock(footer,Dock.Bottom); side.Children.Add(footer);
+        var footer=Text("LOCAL BY DESIGN\nNo telemetry. No magic FPS claims.\nv0.1.1 · Engineering preview",11,"#8FA2BC"); footer.Margin=new(22,12,16,22); DockPanel.SetDock(footer,Dock.Bottom); side.Children.Add(footer);
         var nav=new StackPanel { Margin=new(12,0,10,0) }; side.Children.Add(nav);
         foreach(var item in new[]{("Dashboard","◫"),("Optimize","⚡"),("Debloat","▦"),("Gaming","◇"),("Monitor","▥"),("Cleanup","⌁"),("Tools","⊞"),("Quality of Life","◐"),("Restore","↶"),("Settings","⚙")})
         {
@@ -44,16 +47,19 @@ public sealed class MainWindow : Window
         var top=new DockPanel(); workspace.Children.Add(top);
         var controls=new StackPanel { Orientation=Orientation.Horizontal }; DockPanel.SetDock(controls,Dock.Right); controls.Children.Add(Button("Scan PC",()=>Run(Scan))); controls.Children.Add(Button("Smart Optimize",()=>Run(Smart))); top.Children.Add(controls); top.Children.Add(heading);
         search.TextChanged+=(_,_)=> { query=search.Text; if(page!="Optimize") Go("Optimize"); else Render(); }; search.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,"Global feature search");
-        var searchbar=new StackPanel { Orientation=Orientation.Horizontal,Margin=new(0,14,0,12) }; searchbar.Children.Add(search); searchbar.Children.Add(Text("Search the catalog by feature, category or hardware",12,"#8FA2BC")); Grid.SetRow(searchbar,1); workspace.Children.Add(searchbar);
+        var searchbar=new DockPanel { Margin=new(0,14,0,12) }; DockPanel.SetDock(search,Dock.Left); searchbar.Children.Add(search); searchbar.Children.Add(Text("Find a setting or hardware recommendation",13,"#BDCCE0")); Grid.SetRow(searchbar,1); workspace.Children.Add(searchbar);
         var scroll=new ScrollViewer { VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Content=body }; Grid.SetRow(scroll,2); workspace.Children.Add(scroll);
-        var status=new TextBlock { Margin=new(0,15,0,0),FontSize=12,Foreground=Brush("#8FA2BC"),TextWrapping=TextWrapping.Wrap }; status.SetBinding(TextBlock.TextProperty,new Binding(nameof(AppViewModel.Status))); Grid.SetRow(status,3); workspace.Children.Add(status);
+        var statusArea=new StackPanel { Margin=new(0,12,0,0) };
+        var progress=new ProgressBar { IsIndeterminate=true,Margin=new(0,0,0,8) }; progress.SetBinding(VisibilityProperty,new Binding(nameof(AppViewModel.Busy)) { Converter=new BooleanToVisibilityConverter() }); statusArea.Children.Add(progress);
+        var status=new TextBlock { FontSize=13,Foreground=Brush("#BDCCE0"),TextWrapping=TextWrapping.Wrap }; status.SetBinding(TextBlock.TextProperty,new Binding(nameof(AppViewModel.Status))); statusArea.Children.Add(status); Grid.SetRow(statusArea,3); workspace.Children.Add(statusArea);
         Closing+=(_,e)=> { if(vm.Busy) { e.Cancel=true; vm.Status="Wait for the current action to finish before closing; changes may be in progress."; } };
         Go("Dashboard");
+        if(autoScan) Loaded+=(_,_)=> { if(!scanned&&!vm.Busy) Run(Scan); };
     }
     static SolidColorBrush Brush(string color)=>new((Color)ColorConverter.ConvertFromString(color));
-    static TextBlock Text(string text,double size=14,string color="#E9EFF8",bool bold=false)=>new() { Text=text,FontSize=size,Foreground=Brush(color),FontWeight=bold?FontWeights.SemiBold:FontWeights.Normal,TextWrapping=TextWrapping.Wrap,Margin=new(0,4,0,6),VerticalAlignment=VerticalAlignment.Center };
+    static TextBlock Text(string text,double size=14,string color="#E9EFF8",bool bold=false)=>new() { Text=text,FontSize=Math.Max(13,size<16?size+1:size),LineHeight=Math.Max(13,size<16?size+1:size)*1.45,Foreground=Brush(color=="#8FA2BC"?"#BDCCE0":color=="#A7B7CD"?"#C3D0E2":color),FontWeight=bold?FontWeights.SemiBold:FontWeights.Normal,TextWrapping=TextWrapping.Wrap,Margin=new(0,4,0,6),VerticalAlignment=VerticalAlignment.Center };
     static Button Button(string text,Action click) { var b=new Button { Content=text }; b.Click+=(_,_)=>click(); return b; }
-    static StackPanel Row(params UIElement[] items) { var p=new StackPanel { Orientation=Orientation.Horizontal }; foreach(var i in items) p.Children.Add(i); return p; }
+    static WrapPanel Row(params UIElement[] items) { var p=new WrapPanel { Orientation=Orientation.Horizontal }; foreach(var i in items) p.Children.Add(i); return p; }
     static Border Card(UIElement content)=>new() { Background=Brush("#141E30"),CornerRadius=new(12),Padding=new(20),Margin=new(0,0,12,14),Child=content };
     static StackPanel Panel(params UIElement[] elements) { var p=new StackPanel(); foreach(var e in elements) p.Children.Add(e); return p; }
     void Add(string title,string detail)=>body.Children.Add(Card(Panel(Text(title,18,"#E9EFF8",true),Text(detail,13,"#A7B7CD"))));
@@ -98,7 +104,7 @@ public sealed class MainWindow : Window
     {
         vm.Status="Reading Windows hardware and configuration… No settings are changed.";
         vm.Hardware=await Scanner.Scan(); scanned=true; Render();
-        vm.Status=$"Scan completed {DateTime.Now:t} • {vm.Hardware.Warnings.Count} unavailable sources • temperatures, GPU utilization, VRAM, TRIM and live FPS unavailable.";
+        vm.Status=$"Scan completed {DateTime.Now:t} • {vm.Hardware.Warnings.Count} unavailable sources. See Dashboard for details. No settings changed.";
     }
     void RequireScan() { if(!scanned) throw new InvalidOperationException("Scan this PC first so compatibility can be checked."); }
     void Dashboard()
@@ -111,6 +117,10 @@ public sealed class MainWindow : Window
         var cards=new[]{Metric("CPU sample",h.CpuPercent is {} c?$"{c:F0}%":"Unavailable",h.Cpu),Metric("Memory available",GiB(h.AvailableMemory),$"Installed: {GiB(h.TotalMemory)}"),Metric("Verified changes",engine.History.Count(x=>x.Status=="Applied").ToString(),"Journal records; not a performance score")};
         for(int i=0;i<cards.Length;i++) { Grid.SetColumn(cards[i],i); stats.Children.Add(cards[i]); } body.Children.Add(stats);
         Add("Your hardware",scanned?$"{h.Os}\n{h.Cpu} • {Number(h.Cores)} cores / {Number(h.Threads)} threads\n"+string.Join("\n",h.Gpus.Select(g=>$"{g.Name} • driver {g.Driver}"))+"\n"+string.Join("\n",h.Volumes):"Run Scan PC to read this computer. Unavailable values are never filled with demo data.");
+        var findings=HealthAdvisor.Analyze(h);
+        if(scanned) Add("System review",findings.Any(f=>f.Attention)?$"{findings.Count(f=>f.Attention)} readings deserve a closer look. These are diagnostics, not a gaming performance score.":"No attention flags were generated from the available measurements. Unsupported readings remain Unavailable. This is not a gaming benchmark.");
+        foreach(var finding in findings)
+            body.Children.Add(Card(Panel(Text(finding.Title,18,finding.Attention?"#FFD08A":"#5EE0BA",true),Text(finding.Detail,14,"#C3D0E2"),Button("Review supported controls",()=>Run(()=>Handle(Catalog.All.Single(o=>o.Id==finding.OperationId)))))));
         var opportunities=Catalog.Search("","Recommended",h).Take(4).ToList();
         foreach(var o in opportunities) body.Children.Add(Card(Panel(Text(o.Name,17,"#E9EFF8",true),Text(o.Reason(h),13,"#A7B7CD"),Button(o.Reversible?"Review change":"Open supported controls",()=>Run(()=>Handle(o))))));
         if(scanned&&h.Cpu.Contains("X3D",StringComparison.OrdinalIgnoreCase)) Add("X3D-aware guidance","Use supported AMD chipset drivers and OEM power/scheduler behavior. FrameForge will not modify core parking, affinity or scheduler registry values.");
@@ -130,9 +140,13 @@ public sealed class MainWindow : Window
             if(ops.Count==0) target.Children.Add(Text("No matching features. Try another search or filter.",14,"#A7B7CD"));
             foreach(var o in ops)
             {
-                var reason=o.Incompatibility(vm.Hardware)??ModeReason(o);
+                var incompatibility=o.Incompatibility(vm.Hardware);
+                var modeReason=ModeReason(o);
+                var reason=incompatibility??modeReason;
+                var state=incompatibility!=null?"Not applicable":modeReason!=null?(o.Risk==Risk.Experimental?"Requires Advanced mode":"Requires Balanced mode"):applied.Contains(o.Id)?"Applied (journal)":"Available";
                 var b=Button(o.Reversible?"Preview change":"Open controls",()=>Run(()=>Handle(o))); b.IsEnabled=reason==null;
-                target.Children.Add(Card(Panel(Row(Text(o.Name,18,"#E9EFF8",true)),Text($"{o.Category}  ·  {o.Risk} risk  ·  {(reason!=null?"Not applicable":applied.Contains(o.Id)?"Applied (journal)":"Available")}",12,reason!=null?"#E9B76D":"#5EE0BA"),Text(o.Description,13,"#A7B7CD"),Text($"Benefit: {o.Benefit}\nEvidence: {o.Evidence}\nAdministrator: {(o.Admin?"required":"not required")} • Restart/refresh: {(o.Restart?"may be needed":"not required")} • Reversible: {(o.Reversible?"yes, with conflict checks":"external controls; manual reversal")}",12,"#8FA2BC"),reason==null?b:Text(reason,12,"#E9B76D"))));
+                var details=new Expander { Header="Evidence, compatibility and restore details",Content=Text($"Benefit: {o.Benefit}\nEvidence: {o.Evidence}\nAdministrator: {(o.Admin?"required":"not required")} • Restart/refresh: {(o.Restart?"may be needed":"not required")}\nReversible: {(o.Reversible?"yes, with conflict checks":"external controls; manual reversal")}",13,"#BDCCE0") };
+                target.Children.Add(Card(Panel(Text(o.Name,19,"#F1F5FC",true),Text($"{o.Category}  ·  {o.Risk} risk  ·  {state}",13,reason!=null?"#FFD08A":"#5EE0BA"),Text(o.Description,14,"#C3D0E2"),details,reason==null?b:Text(reason,14,"#FFD08A"))));
             }
         }
         filters.SelectionChanged+=(_,_)=> { filter=filters.SelectedItem as string??"All"; Draw(); }; body.Children.Add(filters); body.Children.Add(target); Draw();
@@ -145,7 +159,7 @@ public sealed class MainWindow : Window
     };
     async Task Handle(Optimization o)
     {
-        RequireScan();
+        if(!scanned) await Scan();
         if((o.Incompatibility(vm.Hardware)??ModeReason(o)) is {} reason) throw new InvalidOperationException(reason);
         if(!o.Reversible) { WindowsSettings.Open(o); vm.Status="Opened "+o.Name+". Any external changes need manual review and reversal."; return; }
         var preview=await engine.Preview(o,vm.Hardware);
@@ -158,7 +172,7 @@ public sealed class MainWindow : Window
     }
     async Task Smart()
     {
-        RequireScan();
+        if(!scanned) await Scan();
         var candidates=Catalog.All.Where(o=>o.Smart&&o.Risk==Risk.Low&&o.Incompatibility(vm.Hardware)==null);
         var previews=new List<ActionPreview>();
         foreach(var o in candidates) { var p=await engine.Preview(o,vm.Hardware); if(p.Current!=p.Proposed) previews.Add(p); }
@@ -184,6 +198,7 @@ public sealed class MainWindow : Window
             content.Children.Add(Text("Review gaming and resource settings",19,"#5EE0BA",true));
             var ids=new HashSet<string>{"gamemode","capture","startup","graphics","display","power","amd","nvidia","intel"};
             if(vm.Hardware.TotalMemory is >0 and <16L*1073741824) ids.Add("memory");
+            foreach(var finding in HealthAdvisor.Analyze(vm.Hardware)) ids.Add(finding.OperationId);
             foreach(var operation in Catalog.All.Where(o=>ids.Contains(o.Id)&&o.Incompatibility(vm.Hardware)==null))
             {
                 content.Children.Add(Card(Panel(Text(operation.Name,17),Text(operation.Reason(vm.Hardware),13,"#A7B7CD"),Text($"Current: inspect in Windows/vendor controls\nProposed: manual review only\nEvidence: {operation.Evidence} • Risk: {operation.Risk}\nThese external changes are not backed up or verified by FrameForge.",12,"#8FA2BC"),Button("Open for manual review",()=>
@@ -316,7 +331,7 @@ public sealed class MainWindow : Window
         var utilities=new WrapPanel(); foreach(var name in new[]{"Task Manager","Resource Monitor","System Information","DirectX Diagnostic","Event Viewer","Reliability Monitor","Services (review only)"}) utilities.Children.Add(Button(name,()=>Run(()=> { WindowsSettings.Utility(name); return Task.CompletedTask; }))); body.Children.Add(utilities);
         foreach(var o in Catalog.All.Where(o=>o.Kind==ActionKind.Web&&o.Incompatibility(vm.Hardware)==null)) body.Children.Add(Card(Panel(Text(o.Name,18),Text(o.Description,13,"#A7B7CD"),Button("Open official support",()=>Run(()=>Handle(o))))));
         Add("Network adapters and DNS",Join(vm.Hardware.Network));
-        var host=new TextBox { Text="",Width=270,ToolTip="Hostname or IP you want to test" }; host.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,"Diagnostic ping host"); var result=Text("Enter a destination you want to diagnose. Ten bounded ICMP requests; no configuration change.",13,"#A7B7CD");
+        var host=new TextBox { Text="",Tag="Hostname or IP address",Width=270,ToolTip="Hostname or IP you want to test" }; host.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,"Diagnostic ping host"); var result=Text("Enter a destination you want to diagnose. Ten bounded ICMP requests; no configuration change.",13,"#A7B7CD");
         body.Children.Add(Row(host,Button("Test latency",()=>Run(async ()=> { var destination=host.Text.Trim(); result.Text=await Diagnostics.Ping(destination); store.Audit("Network diagnostic",destination,result.Text); vm.Status="Network diagnostic completed; settings unchanged."; })))); body.Children.Add(Card(result));
     }
     void Settings()
@@ -327,6 +342,6 @@ public sealed class MainWindow : Window
         body.Children.Add(Text("Optimization review mode",16)); body.Children.Add(mode);
         Add("Modes","Safe: low-risk changes. Balanced: review optional convenience changes individually. Advanced: power-plan experiments exposed individually with thermal/compatibility checks. Smart Optimize only proposes the implemented safe, reversible conveniences in every mode; no experimental action is applied automatically.");
         Add("Data directory",store.Root+"\nKeep backups before moving/deleting this folder. A corrupt history file blocks startup rather than discarding originals. Close FrameForge, preserve all files and recover the .bak manually if necessary. No history import or script execution from configuration is supported.");
-        Add("Release status and unavailable capabilities","0.1.0 engineering preview. Windows runtime acceptance is required before production use. Live FPS, temperatures, reliable dedicated VRAM, GPU utilization, automatic driver updates, scheduler, Gaming Session Mode, automatic game-config edits and restore-point creation are unavailable. Cleanup and package removal cannot be undone by FrameForge.");
+        Add("Release status and unavailable capabilities","0.1.1 engineering preview. Windows runtime acceptance is required before production use. Live FPS, temperatures, reliable dedicated VRAM, GPU utilization, automatic driver updates, scheduler, Gaming Session Mode, automatic game-config edits and restore-point creation are unavailable. Cleanup and package removal cannot be undone by FrameForge.");
     }
 }

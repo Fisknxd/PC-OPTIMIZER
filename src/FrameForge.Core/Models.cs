@@ -29,6 +29,7 @@ public sealed record HardwareSnapshot
     public List<string> MemoryModules { get; init; } = [];
     public List<string> Disks { get; init; } = [];
     public List<string> Volumes { get; init; } = [];
+    public List<StorageVolume> StorageVolumes { get; init; } = [];
     public List<string> Network { get; init; } = [];
     public List<string> Startup { get; init; } = [];
     public List<string> Processes { get; init; } = [];
@@ -76,3 +77,5 @@ public static class HardwareRules
 {
     public static Vendor IdentifyVendor(string name)=>name.Contains("NVIDIA",StringComparison.OrdinalIgnoreCase)?Vendor.Nvidia : name.Contains("AMD",StringComparison.OrdinalIgnoreCase)||name.Contains("Radeon",StringComparison.OrdinalIgnoreCase)||name.Contains("Advanced Micro",StringComparison.OrdinalIgnoreCase)?Vendor.Amd : name.Contains("Intel",StringComparison.OrdinalIgnoreCase)?Vendor.Intel:Vendor.Unknown;
 }
+
+public sealed record StorageVolume(string Name,long TotalBytes,long FreeBytes);

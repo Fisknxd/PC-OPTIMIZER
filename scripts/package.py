@@ -69,15 +69,25 @@ def package():
             for entry in src.infolist():
                 out.writestr("FrameForge/Source/" + entry.filename.removeprefix("FrameForge/"), src.read(entry.filename))
         out.write(ROOT / "scripts" / "Place-on-Desktop.cmd", "Place-on-Desktop.cmd")
-        out.writestr("START-HERE.txt", "Extract this entire ZIP. Run Place-on-Desktop.cmd from the extracted folder to copy all files to Desktop/FrameForge. Existing folders are never overwritten. Open Desktop/FrameForge/FrameForge.exe.\nEngineering preview: complete Windows/hardware acceptance before primary-PC system changes.\n")
+        out.write(ROOT / "scripts" / "Update-FrameForge.cmd", "Update-FrameForge.cmd")
+        out.writestr("START-HERE.txt", "Extract this entire ZIP into Downloads. Close the old app, then run Update-FrameForge.cmd. It updates the existing Desktop/FrameForge application (or a selected existing folder), keeps the previous folder in a dated backup and preserves LocalAppData settings/history. It also supports a fresh Desktop installation. Open the updated FrameForge.exe.\nEngineering preview: complete Windows/hardware acceptance before primary-PC system changes.\n")
     with zipfile.ZipFile(desktop) as z:
         if z.testzip() is not None:
             raise ValueError("Desktop ZIP integrity check failed")
-        for required in ["Place-on-Desktop.cmd", "FrameForge/FrameForge.exe", "FrameForge/Source/FrameForge.sln"]:
+        for required in ["Place-on-Desktop.cmd", "Update-FrameForge.cmd", "FrameForge/FrameForge.exe", "FrameForge/Source/FrameForge.sln"]:
             if required not in z.namelist():
                 raise ValueError("Desktop package is incomplete: " + required)
+    bundles = [target, source, desktop]
+    ui_checks = ARTIFACTS / "ui-checks"
+    if (ui_checks / "report.txt").is_file():
+        ui_bundle = ARTIFACTS / "FrameForge-UI-checks.zip"
+        with zipfile.ZipFile(ui_bundle, "w", compression=zipfile.ZIP_DEFLATED) as out:
+            for p in sorted(ui_checks.rglob("*")):
+                if p.is_file():
+                    out.write(p, p.relative_to(ui_checks).as_posix())
+        bundles.append(ui_bundle)
     (ARTIFACTS / "SHA256SUMS.txt").write_text("".join(
-        f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in [target, source, desktop]), encoding="utf-8")
+        f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in bundles), encoding="utf-8")
     print(f"Validated {target.name}: {target.stat().st_size:,} bytes")
     print(f"Validated {desktop.name}: {desktop.stat().st_size:,} bytes")
     print(f"Source: {source.name}")
