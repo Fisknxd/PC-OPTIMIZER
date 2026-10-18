@@ -1,0 +1,163 @@
+1. Enable Windows Game Mode [Windows | Safe | Baseline]
+   Prioritizes gaming behavior and helps limit some background activity. It is a sensible default, not a guaranteed FPS multiplier.
+   Apply: Windows Settings → Gaming → Game Mode → On. Reboot the game and compare a repeatable scene.
+
+2. Enable optimizations for windowed games (Windows 11) [Windows | Test | Conditional]
+   Can reduce presentation latency in compatible DirectX 10/11 windowed or borderless games. It does not target every fullscreen game.
+   Apply: Windows 11: Settings → System → Display → Graphics → Default settings → Optimizations for windowed games. Restart the game after changing.
+
+3. Set Fortnite to High performance GPU preference [Windows | Safe | Baseline]
+   Useful on systems with more than one GPU; confirms Windows assigns the game to the discrete graphics processor.
+   Apply: Settings → System → Display → Graphics → add/select Fortnite executable → Options → High performance. On a single-GPU desktop this usually changes nothing.
+
+4. Trim unnecessary startup apps [Windows | Safe | Low / consistency]
+   Reduces boot-time load and long-running background processes, especially launchers, sync tools, and chat apps you do not use during play.
+   Apply: Ctrl+Shift+Esc → Startup apps. Disable only recognized apps you do not need. Do not disable drivers, security tools, or unfamiliar entries.
+
+5. Reduce nonessential Windows visual effects [Windows | Safe | Small desktop-only]
+   Can make desktop interactions feel lighter on resource-constrained systems. It rarely changes game FPS on this hardware.
+   Apply: Search “Adjust the appearance and performance of Windows” → Visual Effects → choose custom settings or Adjust for best performance.
+
+6. Silence nonessential notifications during play [Windows | Safe | Low / interruption]
+   Prevents overlays and focus interruptions. This is mostly a reliability and distraction improvement, not an FPS fix.
+   Apply: Settings → System → Notifications. Disable apps that interrupt gaming; configure Do not disturb / Focus as preferred.
+
+7. Install current AMD chipset drivers [Windows | Safe | Stability / scheduling]
+   Keeps platform drivers current for the 5800X3D and AM4 chipset. Use AMD’s official support page and reboot after installation.
+   Apply: Download chipset drivers from AMD for the exact motherboard chipset. Avoid third-party “driver updater” utilities; check release notes and reboot.
+
+8. Verify Resizable BAR / Smart Access Memory [Windows | Test | Game-dependent]
+   Resizable BAR can help some game/driver combinations, do nothing in others, and depends on motherboard BIOS settings and compatibility.
+   Apply: Check motherboard firmware and AMD Software status. Enable only if platform support is confirmed; do not blindly toggle CSM/boot settings on an installed OS.
+
+9. Set Windows to the monitor’s maximum refresh rate [Windows | Safe | High for display feel]
+   A high-refresh monitor left at 60 Hz caps the visible update cadence regardless of how many frames the PC renders.
+   Apply: Settings → System → Display → Advanced display → choose the highest supported refresh rate for the correct monitor.
+
+10. Turn V-Sync off for the lowest-latency baseline [Fortnite | Test | Latency / tearing trade-off]
+   V-Sync can queue or delay presentation. Off is a common low-latency baseline, with possible screen tearing.
+   Apply: Fortnite Video settings → V-Sync Off. If you use FreeSync and dislike tearing, compare a stable cap/VRR setup instead.
+
+11. Compare Performance Mode against DirectX 12 [Fortnite | Test | Potentially high]
+   Render mode affects CPU/GPU load and shader behavior. A mode that yields higher average FPS can still stutter more; compare 1% lows and traversal.
+   Apply: Run the same route/replay in each mode after shaders have warmed. After switching modes, allow an initial compile period before scoring smoothness.
+
+12. Set shadows low or off [Fortnite | Safe | GPU headroom]
+   Reduces expensive visual work and prioritizes performance and visual clarity over cosmetic lighting.
+   Apply: Video → Graphics Quality → Shadows Off/Low, if the current rendering mode exposes the option.
+
+13. Reduce effects and post-processing [Fortnite | Safe | GPU headroom]
+   Lower effects and post-processing to reduce distracting visual effects and GPU load during fights.
+   Apply: Set Effects and Post Processing to Low where available, then compare clarity and stable FPS.
+
+14. Disable motion blur [Fortnite | Safe | Clarity]
+   Improves perceived motion clarity for many players. It is primarily a visibility preference rather than a universal latency tweak.
+   Apply: Fortnite video settings → Motion Blur Off, if present.
+
+15. Cap FPS at a rate you can hold consistently [Fortnite | Test | Frame pacing / latency]
+   Unlimited FPS may raise heat and cause GPU saturation; a stable cap can improve consistency. The best cap depends on monitor/VRR and your system.
+   Apply: Test several realistic caps with the same route and monitor settings. Compare input feel, tearing, GPU saturation, and 1% lows; do not copy a universal number.
+
+16. Enable the in-game FPS counter [Fortnite | Safe | Measurement]
+   Makes A/B testing observable. It does not improve performance by itself.
+   Apply: Fortnite video settings → Show FPS On.
+
+17. Use a stable, current AMD graphics driver [AMD Radeon | Safe | Stability / compatibility]
+   Driver fixes can resolve game-specific stutters and bugs. The newest optional release is not always best for every competitive setup.
+   Apply: Use AMD Software: Adrenalin Edition or AMD’s official driver page. Note your current version and change drivers only when there is a reason.
+
+18. Disable Radeon Chill for a competitive profile [AMD Radeon | Safe | Avoids dynamic frame limiting]
+   Chill dynamically changes the frame rate based on activity. That is useful for power savings, but can conflict with a consistent competitive cap.
+   Apply: AMD Software → Gaming / Graphics → Radeon Chill Off for Fortnite. Keep it for other games if you prefer power savings.
+
+19. Avoid forced driver-level V-Sync overrides [AMD Radeon | Safe | Latency / presentation]
+   A driver override can conflict with the intended in-game setting and add presentation behavior you did not plan for.
+   Apply: AMD Software Fortnite profile → Wait for Vertical Refresh: use application settings / do not force always-on V-Sync for the low-latency baseline.
+
+20. A/B test Enhanced Sync instead of stacking sync features [AMD Radeon | Test | Tearing / latency trade-off]
+   Enhanced Sync may reduce tearing in some scenarios, but it is not automatically lower latency or smoother on all systems.
+   Apply: Test with FreeSync/V-Sync configurations one at a time. Keep the simplest setup that has stable frametimes and acceptable tearing.
+
+21. Enable FreeSync if your monitor supports it [AMD Radeon | Test | Smoothness / tearing]
+   Variable refresh rate can reduce tearing and judder. It is not a universal minimum-latency winner; pairing and frame cap matter.
+   Apply: Enable Adaptive-Sync/FreeSync in the monitor OSD and AMD Software. Confirm the correct monitor and refresh range. Compare against your competitive baseline.
+
+22. Disable unused AMD recording / metrics overlays [AMD Radeon | Safe | Low / background hooks]
+   Removes overlays, instant replay, and recording features you do not use. Keep metrics only while measuring or troubleshooting.
+   Apply: AMD Software settings → preferences/recording. Turn off unused overlay, desktop recording, instant replay, and notifications.
+
+23. Keep shader cache enabled; clear only to troubleshoot [AMD Radeon | Safe | Stutter diagnosis]
+   Shader caches generally help avoid repeated compilation. Clearing them routinely can make the next launch or match stutter while shaders rebuild.
+   Apply: Use AMD Software’s supported reset/cleanup option only when investigating corruption or a reproducible driver/game issue. Expect a warm-up period after clearing.
+
+24. Disable Enhance Pointer Precision if you want raw-feeling aim [Input & display | Safe | Aim consistency]
+   Windows mouse acceleration changes pointer distance by movement speed in desktop contexts. Disabling it improves consistency for many FPS players.
+   Apply: Settings → Bluetooth & devices → Mouse → Additional mouse settings → Pointer Options → uncheck Enhance pointer precision. See Registry lab only if you understand the values.
+
+25. Use a stable wired peripheral connection [Input & display | Safe | Consistency]
+   A wired mouse/keyboard or reliable 2.4 GHz receiver can reduce wireless interference and charging-related problems. Quality devices can still be wireless.
+   Apply: Connect the receiver directly to a stable motherboard USB port, avoid a noisy hub, keep firmware current, and compare dropouts if any.
+
+26. Use a sane mouse polling rate and test higher rates [Input & display | Test | Input granularity / CPU load]
+   Higher polling can reduce intervals between reports, but very high rates can increase CPU/event load and may not improve feel in every game.
+   Apply: Start with your mouse’s stable default, then compare 1000 Hz and higher options if supported. Check for stutter and keep the smoothest reliable setting.
+
+27. Avoid unstable hubs for the gaming mouse [Input & display | Safe | Reliability]
+   Direct connection can help diagnose dropouts, power issues, or RF receiver placement problems. It is not a guaranteed latency reduction.
+   Apply: Connect directly to a motherboard port and test. Do not randomly disable USB power management if there is no issue.
+
+28. Remove old temporary files after a dry run [Cleanup | Safe | Disk space only]
+   Can recover storage, especially on a nearly full drive. It usually does not raise FPS if storage already has ample space.
+   Apply: Use Windows Storage → Temporary files or the generated FrameForge cleanup script in dry-run mode. The optional script only applies deletions after -Apply.
+
+29. Use Windows Storage Sense / Disk Cleanup [Cleanup | Safe | Space / maintenance]
+   Windows-native tools let you review known cleanup categories and avoid third-party registry cleaners.
+   Apply: Settings → System → Storage → Temporary files / Storage Sense. Inspect categories and do not select Downloads unless intended.
+
+30. Allow Windows to optimize SSDs (TRIM) [Cleanup | Safe | Storage maintenance]
+   Windows’ Optimize Drives handles SSD retrim appropriately. Do not run repeated third-party defrag routines on SSDs.
+   Apply: Search “Defragment and Optimize Drives”, select the volume, confirm media type, and let Windows optimize it.
+
+31. Registry: disable Game DVR background capture [Registry | Test | Capture overhead if active]
+   Sets the current user’s Game DVR / AppCapture values off. This affects built-in background captures, so do not use it if you rely on recording.
+   Apply: The exported PowerShell script backs up the relevant HKCU keys first, then writes GameDVR_Enabled=0 and AppCaptureEnabled=0. Sign out/reboot if Windows does not reflect the change.
+
+32. Registry: disable Windows mouse acceleration values [Registry | Test | Aim consistency]
+   Sets MouseSpeed, MouseThreshold1, and MouseThreshold2 to “0” in the current user profile. This corresponds to turning off Enhance Pointer Precision.
+   Apply: Prefer the Windows Mouse control panel first. The script exports HKCU Control Panel\Mouse before changing values; review your prior settings if you need to restore them.
+
+33. Registry: suppress Game Bar startup tips [Registry | Safe | Cosmetic only]
+   Suppresses some Game Bar first-run/startup prompts. It is a convenience change, not a measurable FPS tweak.
+   Apply: The script exports HKCU\Software\Microsoft\GameBar before setting ShowStartupPanel=0 and a startup tip index.
+
+34. Registry: reduce desktop menu-show delay [Registry | Safe | Desktop cosmetic only]
+   Can make desktop menus open sooner. It does not improve game FPS or in-game input latency; included only for transparency.
+   Apply: MenuShowDelay is under HKCU Control Panel\Desktop. This is not in the automatic script because changing desktop animation preferences is outside the gaming objective.
+
+35. Disable unneeded launch-at-login apps [Debloat | Safe | Background load]
+   Removes nonessential resident apps from startup while leaving Windows components and drivers intact.
+   Apply: Task Manager → Startup apps. Sort by Startup impact, disable only recognized apps you do not need.
+
+36. Turn off Xbox Game Bar if you never use it [Debloat | Test | Overlay / capture overhead]
+   May reduce unused overlay features. Keep Game Bar if you need the overlay, controller integration, or recording workflow.
+   Apply: Settings → Gaming → Xbox Game Bar. Disable features you do not use. Re-enable if a workflow depends on it.
+
+37. Disable unused Discord overlay and startup [Debloat | Safe | Low / conflicts]
+   The overlay and auto-start service are not required for voice chat. Keep voice features you use and test the overlay separately.
+   Apply: Discord User Settings → Game Overlay Off, and Windows Task Manager → Startup apps to disable auto-start if not needed.
+
+38. Turn off unused Widgets / news feed [Debloat | Safe | Small / background]
+   Reduces an optional UI surface and its distraction. Expect little or no in-game FPS change on a modern desktop.
+   Apply: Windows Settings → Personalization → Taskbar → Widgets Off, if available on your version.
+
+39. Use Ethernet when practical [Network | Safe | Jitter / packet loss]
+   Often more consistent than Wi-Fi in a crowded environment. It cannot change the geographic distance to the Fortnite server.
+   Apply: Connect to the router by Ethernet. Disable Wi-Fi only if you are sure no other connectivity is needed.
+
+40. Check router SQM / QoS if ping spikes under load [Network | Test | Conditional on bufferbloat]
+   Smart queue management can reduce queue delay when your internet line is saturated. Configuration is router and ISP specific.
+   Apply: Measure idle vs loaded latency first. Configure SQM/QoS only using your router’s documentation and retest; bad settings can reduce throughput.
+
+41. Treat DNS changes as name-resolution tuning, not ping magic [Network | Safe | No expected in-match RTT reduction]
+   A DNS resolver can affect lookup latency or reliability; after joining a server, DNS usually is not the ongoing packet route.
+   Apply: Use a reputable resolver if there is a DNS issue. Do not promise lower in-match ping from changing DNS.

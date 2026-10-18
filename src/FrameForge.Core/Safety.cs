@@ -83,7 +83,7 @@ public sealed record InstalledPackage(string Name,string FullName,string Publish
 public static class DebloatPolicy
 {
     // Only narrow consumer packages may be offered. Unknown packages are protected.
-    public static readonly string[] Optional = ["Microsoft.BingNews","Microsoft.BingWeather","Microsoft.MicrosoftSolitaireCollection","Clipchamp.Clipchamp"];
+    public static readonly string[] Optional = ["Microsoft.BingNews","Microsoft.BingWeather","Microsoft.MicrosoftSolitaireCollection","Clipchamp.Clipchamp","Microsoft.ZuneMusic","Microsoft.ZuneVideo","Microsoft.WindowsFeedbackHub","Microsoft.Getstarted"];
     public static readonly string[] Decision = ["Microsoft.YourPhone","MicrosoftTeams","MSTeams","Microsoft.XboxGamingOverlay","Microsoft.GamingApp"];
     public static readonly string[] ProtectedKeywords = ["Store","VCLibs","NET.Native","UI.Xaml","DesktopAppInstaller","SecHealth","WindowsDefender","AAD","AccountsControl","ShellExperience","StartMenu","GamingServices","WindowsAppRuntime","Edge","WebExperience"];
     public static string Classify(InstalledPackage p,IReadOnlyList<InstalledPackage> all)
@@ -95,20 +95,7 @@ public static class DebloatPolicy
     }
     public static bool CanRemove(InstalledPackage p,IReadOnlyList<InstalledPackage> all) => Classify(p,all) is "Optional — review" or "User decision";
 }
-public sealed record FrameStats(int Frames,double AverageFps,double LowOnePercentFps,double P99FrameMs);
-public static class Benchmark
-{
-    // Explicit exported frame durations only: header FrameTimeMs and one positive value/row.
-    public static FrameStats Parse(string csv)
-    {
-        var lines=csv.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
-        if(lines.Length<101 || lines[0]!="FrameTimeMs") throw new InvalidDataException("Expected FrameTimeMs CSV header and at least 100 frame durations (milliseconds).");
-        var times=lines.Skip(1).Select(x=>double.Parse(x,System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-        if(times.Any(x=>!double.IsFinite(x)||x<=0||x>60000)) throw new InvalidDataException("Frame durations must be finite, positive, and at most 60000 ms.");
-        var sorted=times.OrderDescending().ToArray();
-        return new(times.Length,1000/times.Average(),1000/sorted.Take(Math.Max(1,(int)Math.Ceiling(times.Length*.01))).Average(),sorted[Math.Max(0,(int)Math.Ceiling(times.Length*.01)-1)]);
-    }
-}
+public sealed record FrameStats(int Frames,double AverageFps,double LowOnePercentFps,double P99FrameMs,string PercentileMethod="Legacy tail");
 public static class Games
 {
     public static readonly string[] Names=["Fortnite","Rust","Counter-Strike 2","Valorant","Apex Legends","Minecraft","Call of Duty"];
@@ -126,6 +113,6 @@ public static class Games
             "Minecraft"=>"Compare render/simulation distances. Allocate heap according to the edition/modpack's documented needs, leaving memory for Windows. No universal JVM flag pack.",
             _=>"Review in-game upscaling, texture memory budget and supported latency controls. Let shaders finish compiling. Do not edit protected files or anti-cheat services."
         };
-        return common+specific+"\n\n"+(gpu.Contains("Nvidia",StringComparison.OrdinalIgnoreCase)?"NVIDIA: Reflex must be supported by the game; a vendor match alone does not establish support.\n":"")+(gpu.Contains("Amd",StringComparison.OrdinalIgnoreCase)?"AMD: Anti-Lag 2 needs a supported game, GPU and driver. Radeon Chill/frame limiting trade power, responsiveness and smoothness; compare them deliberately.\n":"")+"\nAutomatic game configuration editing and live FPS capture: Unavailable in this release. Import explicitly exported FrameTimeMs data in Monitor. No injection, anti-cheat manipulation, or invented measurements.";
+        return common+specific+"\n\n"+(gpu.Contains("Nvidia",StringComparison.OrdinalIgnoreCase)?"NVIDIA: Reflex must be supported by the game; a vendor match alone does not establish support.\n":"")+(gpu.Contains("Amd",StringComparison.OrdinalIgnoreCase)?"AMD: Anti-Lag 2 needs a supported game, GPU and driver. Radeon Chill/frame limiting trade power, responsiveness and smoothness; compare them deliberately.\n":"")+"\nPotato Settings can apply supported saved Fortnite and Rust graphics profiles with backup and undo. Live stats can compare imported FPS test data; it does not record game FPS automatically.";
     }
 }

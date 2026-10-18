@@ -50,10 +50,11 @@ public sealed class JsonStore
 public interface ISystemSettings
 {
     bool IsAdministrator { get; }
+    Task CheckAvailability(Optimization operation)=>Task.CompletedTask;
     Task<SettingValue> Read(Optimization operation);
     Task Write(Optimization operation, SettingValue state);
 }
-public sealed class OperationEngine(ISystemSettings system, JsonStore store)
+public sealed class OperationEngine(ISystemSettings system, JsonStore store, ActivityFeed? activity=null)
 {
     readonly SemaphoreSlim gate = new(1,1);
     public List<ChangeRecord> History => store.Load<List<ChangeRecord>>("history.json",()=>[]);
@@ -62,9 +63,17 @@ public sealed class OperationEngine(ISystemSettings system, JsonStore store)
         if (op.Incompatibility(hardware) is {} reason) throw new InvalidOperationException(reason);
         if (!op.Reversible) throw new InvalidOperationException("This action opens a reviewed external interface and is not an automatic operation.");
         if (op.Admin && !system.IsAdministrator) throw new UnauthorizedAccessException("Administrator permission required; no changes made.");
+        await system.CheckAvailability(op);
         var current=await system.Read(op);
-        if (current.Exists && op.Kind == ActionKind.Registry && current.Kind != "DWord") throw new InvalidOperationException("Unexpected existing registry type; refusing to overwrite.");
-        return new(op,current,new(true,op.Kind == ActionKind.PowerPlan ? op.Target : op.Value, op.Kind == ActionKind.PowerPlan ? "Guid" : "DWord"));
+        if (current.Exists && op.Kind is ActionKind.Registry or ActionKind.MachineRegistry && current.Kind != "DWord") throw new InvalidOperationException("Unexpected existing registry type; refusing to overwrite.");
+        return new(op,current,op.Kind==ActionKind.PowerSetting?PowerSettings.Target(op,current):op.Kind==ActionKind.Service?OptionalServices.Paused:FeatureToggles.Supports(op)?FeatureToggles.Target(op,true):new(true,op.Kind == ActionKind.PowerPlan ? op.Target : op.Value, op.Kind == ActionKind.PowerPlan ? "Guid" : "DWord"));
+    }
+    public async Task<ActionPreview> PreviewToggle(Optimization operation,HardwareSnapshot hardware,bool enabled)
+    {
+        var target=FeatureToggles.Target(operation,enabled);
+        var preview=await Preview(operation,hardware);
+        var current=FeatureToggles.Enabled(operation,preview.Current);
+        return preview with { Proposed=current==enabled?preview.Current:target };
     }
     public async Task<ChangeRecord?> Apply(ActionPreview preview, HardwareSnapshot hardware, string session)
     {
@@ -72,19 +81,30 @@ public sealed class OperationEngine(ISystemSettings system, JsonStore store)
         try
         {
             var op=Catalog.All.Single(o=>o.Id==preview.Operation.Id);
-            var fresh=await Preview(op,hardware);
+            activity?.Report("Checking current setting: "+op.Name);
+            ActionPreview fresh;
+            if(FeatureToggles.Supports(op))
+            {
+                var enabled=preview.Proposed==preview.Current&&FeatureToggles.Enabled(op,preview.Current) is {} existing?existing:preview.Proposed==FeatureToggles.Target(op,true)?true:preview.Proposed==FeatureToggles.Target(op,false)?false:
+                    throw new InvalidOperationException("Unrecognized toggle target. No change made.");
+                fresh=await PreviewToggle(op,hardware,enabled);
+            }
+            else fresh=await Preview(op,hardware);
             if (fresh != preview) throw new InvalidOperationException("Configuration changed since preview. Review a new preview.");
             if (fresh.Current == fresh.Proposed) return null;
             var changes=History;
-            var record=new ChangeRecord { OperationId=op.Id,Name=op.Name,Before=fresh.Current,After=fresh.Proposed,Session=session,Restart=op.Restart };
+            var record=new ChangeRecord { OperationId=op.Id,Name=op.Name,Before=fresh.Current,After=fresh.Proposed,Session=session,Restart=op.Restart,WriteCompleted=false };
             changes.Add(record); store.Save("history.json",changes); // write-ahead, before touching Windows
+            activity?.Report("Original saved to Recovery. Before: "+record.Before.Value+" → Requested: "+record.After.Value);
             try
             {
                 await system.Write(op,record.After);
+                activity?.Report("Reading Windows again to verify the result…");
                 if (await system.Read(op) != record.After) throw new IOException("Post-change verification failed.");
-                record.Status="Applied";
+                record.Status="Applied";record.WriteCompleted=true;
+                activity?.Report("VERIFIED: "+op.Name+". Windows matches the requested value.");
             }
-            catch(Exception e) { record.Status="Failed"; record.Error=e.Message; }
+            catch(Exception e) { record.Status="Failed"; record.Error=e.Message; activity?.Report("FAILED: "+e.Message); }
             store.Save("history.json",changes);
             return record;
         }
@@ -98,21 +118,25 @@ public sealed class OperationEngine(ISystemSettings system, JsonStore store)
             var history=History; var r=history.Single(x=>x.Id==id);
             if (r.Status=="Restored") return r;
             var op=Catalog.All.Single(x=>x.Id==r.OperationId);
+            activity?.Report("Restoring original setting: "+op.Name);
             if (!op.Reversible) throw new InvalidOperationException("Operation is not reversible.");
             if (op.Admin && !system.IsAdministrator) throw new UnauthorizedAccessException("Administrator permission required.");
             try
             {
+                if(history.Skip(history.IndexOf(r)+1).Any(x=>x.OperationId==r.OperationId&&x.Status!="Restored"))
+                    throw new InvalidOperationException("Restore newer records for this setting first. No overwrite performed.");
                 var current=await system.Read(op);
                 if (current!=r.Before)
                 {
-                    if (current!=r.After) throw new InvalidOperationException("Restore conflict: the setting changed outside this record. No overwrite performed.");
-                    r.Status="Restoring"; store.Save("history.json",history);
+                    if (current!=r.After&&!GroupedSettings.CanRecoverPartial(op,r,current)) throw new InvalidOperationException("Restore conflict: the setting changed outside this record. No overwrite performed.");
+                    r.Status="Restoring";r.RestoreInProgress=true; store.Save("history.json",history);
                     await system.Write(op,r.Before);
                     if (await system.Read(op)!=r.Before) throw new IOException("Restore verification failed.");
                 }
-                r.Status="Restored"; r.Error=null;
+                r.Status="Restored"; r.Error=null;r.RestoreInProgress=false;
+                activity?.Report("VERIFIED: Original setting restored.");
             }
-            catch(Exception e) { r.Status="Restore failed"; r.Error=e.Message; }
+            catch(Exception e) { r.Status="Restore failed"; r.Error=e.Message; activity?.Report("RESTORE FAILED: "+e.Message); }
             store.Save("history.json",history); return r;
         }
         finally { gate.Release(); }
