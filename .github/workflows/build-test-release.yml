@@ -32,6 +32,7 @@ jobs:
         run: |
           dotnet publish src/FrameForge.App -c Release -r win-x64 --self-contained true --no-restore -o artifacts/publish/win-x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./scripts/validate-windows.ps1
           python scripts/package.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Nondestructive WPF launch and close
@@ -49,6 +50,8 @@ jobs:
             artifacts/*.zip
             artifacts/SHA256SUMS.txt
             artifacts/test-results/*.trx
+            artifacts/ui-checks/
+            artifacts/ui-test-error.txt
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: verify
@@ -69,8 +72,12 @@ jobs:
           cat > /tmp/frameforge-release-notes.md <<'NOTES'
           FrameForge Windows x64 engineering preview.
 
-          Download FrameForge-Desktop.zip, extract the ENTIRE archive, and run Place-on-Desktop.cmd. It copies the app, runtime, documentation and complete source to Desktop/FrameForge without overwriting an existing folder. Then open FrameForge.exe.
+          Download FrameForge-Desktop.zip and extract it into Downloads. Close the old FrameForge app, then run Update-FrameForge.cmd. It updates the existing application folder, preserves the previous version in a dated backup, and leaves LocalAppData settings/history untouched. A fresh Desktop installation is also supported.
 
-          CI builds the application, runs portable tests and a nondestructive Windows WPF launch/close smoke test. Real system modifications, rollback on supported Windows versions, and physical AMD/NVIDIA/Intel hardware acceptance remain pending. Do not treat this preview as production-validated. No FPS improvement has been established. Test mutating features in disposable Windows VMs first.
+          CI builds the application, runs portable tests, a nondestructive Windows WPF launch/close smoke test, and menu/dropdown contrast checks with screenshots. Real system modifications, rollback on supported Windows versions, and physical AMD/NVIDIA/Intel hardware acceptance remain pending. Do not treat this preview as production-validated. No FPS improvement has been established. Test mutating features in disposable Windows VMs first.
           NOTES
-          gh release create "$RELEASE_TAG" release/*.zip release/SHA256SUMS.txt --prerelease --title "FrameForge $RELEASE_TAG — Engineering Preview" --notes-file /tmp/frameforge-release-notes.md
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already published; verified CI packages remain available as workflow artifacts."
+          else
+            gh release create "$RELEASE_TAG" release/*.zip release/SHA256SUMS.txt --prerelease --title "FrameForge $RELEASE_TAG — Engineering Preview" --notes-file /tmp/frameforge-release-notes.md
+          fi

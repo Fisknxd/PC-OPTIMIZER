@@ -79,6 +79,17 @@ public sealed class CoreTests : IDisposable
         fake.FailRestore=true; Assert.Equal("Restore failed",(await engine.Undo(r!.Id)).Status);
         fake.FailRestore=false; Assert.Equal("Restored",(await engine.Undo(r.Id)).Status);
     }
+    [Fact] public async Task UndoOlderRecordCannotOverwriteNewerChangeWithTheSameValue()
+    {
+        var fake=new Fake(); var engine=new OperationEngine(fake,Store());
+        var older=await engine.Apply(await engine.Preview(Op(),Desktop),Desktop,"older"); fake.State=new(true,"1");
+        var newer=await engine.Apply(await engine.Preview(Op(),Desktop),Desktop,"newer");
+        var writes=fake.Writes; var conflict=await engine.Undo(older!.Id);
+        Assert.Equal("Restore failed",conflict.Status); Assert.Contains("newer records",conflict.Error);
+        Assert.Equal(writes,fake.Writes); Assert.Equal("0",fake.State.Value);
+        Assert.Equal("Restored",(await engine.Undo(newer!.Id)).Status);
+        Assert.Equal("Restore failed",(await engine.Undo(older.Id)).Status); Assert.Equal("1",fake.State.Value);
+    }
     [Fact] public async Task PreparedInterruptedRecordCanBeRestored()
     {
         var store=Store(); var fake=new Fake {State=new(true,"0")};
@@ -152,7 +163,7 @@ public sealed class CoreTests : IDisposable
         var list=cleaner.Preview(DateTime.UtcNow); Assert.Single(list); Assert.Equal(good,list[0].Path);
         Assert.False(cleaner.IsSafe(Path.Combine(root,"..","outside"),DateTime.UtcNow));
     }
-    [Fact] public void CleanupRejectsLinksAndDoesNotTraverseSymlinkDirectories()
+    [SymlinkFact] public void CleanupRejectsLinksAndDoesNotTraverseSymlinkDirectories()
     {
         var file=Old("data.tmp"); var outside=Path.Combine(root,"..","external-"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(outside);
         try
@@ -174,13 +185,13 @@ public sealed class CoreTests : IDisposable
     [Fact] public void BenchmarkUsesActualDurationsAndSlowestOnePercent()
     {
         var stats=Benchmark.Parse("FrameTimeMs\n"+string.Join("\n",Enumerable.Repeat("10",99).Append("100")));
-        Assert.Equal(100,stats.Frames); Assert.Equal(1000/10.9,stats.AverageFps,5); Assert.Equal(10,stats.LowOnePercentFps); Assert.Equal(100,stats.P99FrameMs);
+        Assert.Equal(100,stats.Frames); Assert.Equal(1000/10.9,stats.AverageFps,5); Assert.Equal(10,stats.LowOnePercentFps); Assert.Equal(10,stats.P99FrameMs);
     }
     [Theory] [InlineData("NaN")] [InlineData("0")] [InlineData("-1")] [InlineData("Infinity")]
     public void BenchmarkRejectsInvalidMeasurements(string value)=>Assert.Throws<InvalidDataException>(()=>Benchmark.Parse("FrameTimeMs\n"+string.Join("\n",Enumerable.Repeat(value,100))));
     [Fact] public void BenchmarkRejectsInsufficientSamples()=>Assert.Throws<InvalidDataException>(()=>Benchmark.Parse("FrameTimeMs\n10"));
-    [Fact] public void GameGuidanceNeverPretendsToEditFiles()
+    [Fact] public void GameGuidanceDistinguishesSavedProfilesFromAutomaticFpsRecording()
     {
-        foreach(var game in Games.Names) { var text=Games.Guidance(game,Desktop); Assert.Contains("Unavailable",text); Assert.Contains("NVIDIA",text); }
+        foreach(var game in Games.Names) { var text=Games.Guidance(game,Desktop);Assert.Contains("Fortnite and Rust",text);Assert.Contains("does not record game FPS automatically",text);Assert.Contains("NVIDIA",text); }
     }
 }

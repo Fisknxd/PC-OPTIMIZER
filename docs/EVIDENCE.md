@@ -28,4 +28,12 @@ Registry convenience operations (Windows 10/11 shell preferences; practical beha
 
 These shell implementation preferences are isolated from performance actions and labeled observational evidence. Unsupported policy-managed writes may fail verification. Explorer may need refreshing/sign-out; FrameForge never restarts Explorer forcibly.
 
-Game Mode, capture, HAGS, GPU preference, refresh rate, startup, privacy and services are opened in supported Windows Settings/management interfaces. They are not silently altered. No changes to Defender, Update, Store dependencies, anti-cheat, system services, arbitrary network registry values, overclocking, or voltage.
+Historical 0.1 scope used manual Windows controls for these settings. Later releases added explicit reversible controls; see UPDATE-0.3.0.md and UPDATE-0.4.0.md for their supported boundaries. Defender, Update, critical services, anti-cheat, arbitrary network registry values, overclocking and voltage remain outside the operation boundary.
+
+## 0.4.0 evidence
+
+The official game, service and scheduling sources, implementation decisions and uncertainty are recorded in [UPDATE-0.4.0.md](UPDATE-0.4.0.md). New registry values are observed per-user Windows preferences, not documented performance optimizations. Readback confirms stored values; appearance across Windows versions needs separate acceptance. Unsupported/missing preferences are unavailable.
+
+## 0.5.0 evidence
+
+See [0.5.0 source review and boundaries](UPDATE-0.5.0.md). WinUtil reference definitions and EXM public categories informed the implementation. Game configuration controls are accepted only when present in the installed schema; graphics file readback is distinguished from in-game rendering/FPS verification.

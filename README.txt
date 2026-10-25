@@ -1,111 +1,75 @@
-FRAMEFORGE 0.1.0 — WINDOWS X64 ENGINEERING PREVIEW
+FRAMEFORGE 0.8.0 — WINDOWS X64 PREVIEW
 
-WHAT IT DOES
-FrameForge inventories hardware and Windows configuration, presents reviewed
-system-management options, records supported changes, and offers restore.
-This is an engineering preview, not a production-validated optimizer.
-Gaming performance gains vary. No FrameForge FPS gain has been measured.
+START
+Extract the entire ZIP. Open FrameForge/FrameForge.exe and keep its DLLs
+alongside it. The runtime is included. Windows 10 build 19045+ or Windows 11,
+x64, is required. Use Update-FrameForge.cmd to replace a prior Desktop copy;
+the previous folder is kept as a dated backup. Local saved history is retained.
 
-REQUIREMENTS / INSTALL
-Windows 10 22H2 (build 19045+) or Windows 11, x64. Use a Microsoft-supported
-OS/security configuration. No separate .NET runtime required for the ZIP.
-Allow at least 500 MB disk space and 4 GB RAM for basic use; gaming needs vary.
-Extract the ENTIRE ZIP to a local folder; run FrameForge.exe. Keep all DLLs
-and resources together. This is a portable folder, not a single-file EXE.
-The executable is unsigned; no publisher identity/signing is claimed.
+ADMINISTRATOR ACCESS
+Windows asks permission at launch. Approve to allow administrator features.
+Cancel to open with standard access. Access is shown in the sidebar. The app
+rejects elevation into a different Windows account to protect user settings.
 
-FIRST LAUNCH
-Run in a disposable Windows VM first. Click Scan PC. WMI reads CPU, GPU/driver,
-RAM, storage and Windows information. Unknown data is shown as Unavailable.
-There are no fabricated GPU memory, temperature or FPS readings.
-No automatic network access, startup registration, or persistent service.
+TWEAKS
+Run Scan PC, then open Tweaks. Every control has a short explanation.
+Review the requested change before confirming. Previous values are saved and
+the result is checked. Recovery > Undo session restores a whole tuning session; individual Undo is in its details. Choose
+More choices for settings with tradeoffs. Unsupported settings are disabled
+with a reason. Custom/default states are labelled rather than guessed.
 
-SMART OPTIMIZE AND MODES
-Smart Optimize matches manual gaming/startup/vendor reviews to the scanned PC.
-Its automatic changes include only low-risk reversible conveniences.
-It does NOT promise to accelerate games. Read each item, select it explicitly,
-and approve. Safe mode blocks review/experimental changes. Balanced allows
-review options; Advanced additionally exposes a desktop power-plan experiment.
-Compatibility and safety checks apply in every mode. Advanced is not a bypass.
-Optimize includes supported Windows Settings shortcuts; changes made there
-are manual and are NOT automatically backed up or verified by FrameForge.
+There are 30 direct tweak controls, seven optional-service Pause switches,
+two plugged-in power checks, app priority experiments and a live changes window with actual PowerShell
+output and native-operation verification. Potato Settings applies saved graphics profiles for Fortnite and Rust in one
+click. Game configs are backed up first and can be restored on the game page
+or in Recovery. Close the game first. Unsupported fields are skipped.
+Low-end PC offers 17 selectable background-work and desktop choices with undo. Choose Recommended or Browser memory as a starting selection. Your choices are remembered. Clear selection remains cleared. Stronger browser choices include their prerequisites. Already-configured settings are left unchecked. Open More choices for browser, download and Windows controls. Browser policies require acceptance in chrome://policy or edge://policy; Edge sleeping-tab policies exclude personal Microsoft-account profiles. Power checks preserve your existing plan and battery settings.
 
-HARDWARE / GAMES
-GPU-specific links/guidance appear for AMD, NVIDIA or Intel hardware. Choose
-a gaming GPU on multi-GPU PCs. Reflex and Anti-Lag 2 require supported games,
-GPUs and drivers; FrameForge cannot enable them globally. X3D recommendations
-avoid unsupported scheduler/affinity/parking changes. Laptop power changes
-are manual to respect OEM/thermal restrictions.
-Seven game guidance profiles are provided. Automatic game-configuration edits
-are unavailable. Limited Steam/user-folder detection does not verify installs.
-Use the same scene/settings/version for benchmarks. Monitor can import CSV:
-FrameTimeMs
-16.67
-16.50
-... at least 100 positive frame-duration values in milliseconds.
-No live FPS overlay is included. No game injection or anti-cheat modification.
+Game Mode, recording, mouse, notifications and desktop settings have direct
+controls. Game setup contains 30 short guides for the supplied feature list.
+Game, driver, monitor and router choices remain manual, clearly labelled steps.
+Desktop animation and menu settings do not claim to reduce in-game input delay.
 
-DEBLOAT
-Scan packages, select ONE app, read publisher/dependencies/classification,
-and confirm removal explicitly. This affects only the current Windows user.
-Unknown packages and essential/framework/driver/Store/security dependencies
-are protected. Some consumer packages are optional; Xbox/Teams/Phone Link
-need a personal decision. OneDrive and traditional apps use Installed apps.
-Never assume an application is unnecessary because of its publisher.
-Removal can lose data/features; automatic undo is unavailable. Reinstall via
-the official Store/publisher only if supported and still available.
+RECOVERY
+Create restore point uses Windows System Restore, then checks the PC's local
+Windows restore-point list for the new point. It needs administrator permission
+and System Protection enabled for the Windows drive. Windows manages storage;
+FrameForge's change-history JSON is not a Windows restore point.
 
-CLEANUP
-Preview regular .tmp/.temp/.log files older than seven days under standard user TEMP.
-Select rows (Ctrl/Shift for multiple), review paths, then confirm permanent
-deletion. Locked, changed, linked, protected and known sensitive/cache files
-are skipped. Custom TEMP paths are not supported for deletion. Documents,
-saves and browser/shader caches are not intentional cleanup targets.
-Scan capped at 50,000 candidates; inaccessible paths may be skipped.
-Use Windows Storage Sense for other categories. Cleanup is irreversible and
-is not an automatic FPS boost. Close apps whose temporary data you need.
+The creation-frequency setting is saved before temporary adjustment and restored
+on completion or failure. Recovery can finish an interrupted setup. Restore
+points protect system settings, not personal files or guaranteed app reinstall.
+The real creation test in this run was NOT VERIFIED because administrator
+approval was declined. In-memory coordinator and recovery UI tests passed.
 
-RESTORE / DATA
-Supported setting changes save exact original state BEFORE writes and verify
-afterwards. Restore can undo an individual record or session, newest first.
-It refuses external-state conflicts and stops session restore on failure.
-Prepared/failed/restoring records survive interruption; rescan and retry undo.
-Restart/refresh flags are shown per record. Explorer may require manual
-refresh/sign-out. The application does not forcibly restart it.
-Data: %LOCALAPPDATA%\FrameForge (preferences, history, .bak, audit, snapshots).
-Export history for review. Exports can contain paths and hardware details.
-Do not discard the data folder if you need rollback. A corrupt journal blocks
-startup: close FrameForge, preserve the whole folder, inspect the .bak and
-recover manually. No executable configuration imports are supported.
-Uninstalls and deleted files cannot be restored by this backup system.
-Windows restore-point creation is unavailable. Maintain normal system backups.
+APPS AND CLEANUP
+App removal is individual and checked for protected components and dependencies.
+It can delete app data. Cleanup previews old selected temporary files and skips
+changed/locked/sensitive files. Neither action has an Undo button in FrameForge.
 
-ADMIN / TROUBLESHOOTING
-The entire app is NOT elevated. Current built-in operations target user-level
-settings. A policy may block a write or power plan; read the error and Restore
-record rather than running broad scripts as administrator. If WMI/Appx is
-unavailable, inspect scan warnings and Windows management health. No data is
-invented to hide failures. Network ICMP can be filtered; no reply alone does
-not prove loss of connectivity. Close other FrameForge instances first.
+MEASUREMENT
+Live stats has optional CPU/RAM sampling, CSV export and frame-time comparisons.
+Game FPS comparisons use imported PresentMon or FrameTimeMs files. Pick one app/process/stream; unlike interval types are kept separate. p99 uses nearest-rank calculations; legacy p99 results are labelled. There is no injected
+overlay. No universal FPS, ping or input-delay improvement is promised.
 
-KNOWN LIMITATIONS
-Windows runtime acceptance and actual AMD/NVIDIA hardware testing are pending.
-See docs/WINDOWS-ACCEPTANCE.md and docs/STATUS.md. Temperatures, live FPS,
-reliable dedicated VRAM, GPU utilization, per-process CPU/network rate,
-automatic driver updates, game-file edits, maintenance scheduler and gaming
-session temporary profiles are unavailable. No security/service disabling,
-overclocking, timer packs or unsupported network tweaks are implemented.
+LOCAL DATA
+Settings and undo history: %LOCALAPPDATA%/FrameForge. Keep that folder while
+relying on Undo. No account, analytics or persistent background service. Inspect
+exported reports before sharing because they can include local hardware/paths.
 
-PRIVACY / OFFICIAL TOOLS
-No account, telemetry or automatic updater. State stays local. Opening vendor
-links uses your browser; user-selected ping sends ten ICMP requests to that
-host. No external utilities or proprietary installers are bundled.
-AMD: https://www.amd.com/en/support
-NVIDIA: https://www.nvidia.com/en-us/drivers/
-Intel: https://www.intel.com/content/www/us/en/download-center/home.html
-Microsoft: https://support.microsoft.com/windows
-Use Tools for Task Manager, Resource Monitor, Reliability Monitor, dxdiag and
-other built-in tools. Driver update availability is not automatically verified.
+VERIFICATION
+Release build passed with no warnings. 150 tests passed; 2 symlink privilege
+tests were skipped. Windows control, service round-trip UI, recovery UI and read-only native checks
+passed. See Source/docs/UPDATE-0.8.0.md and the validation bundle for details.
 
-LICENSE
-See LICENSE and licenses/ for bundled runtime/component notices.
+Service writes and app priority writes still need live acceptance on supported
+PCs. Their journal/undo logic is tested with simulated states. Installed game files and Windows settings on
+this PC were not modified for release validation. The real Windows file
+backend was tested against disposable graphics-config fixtures. Read UPDATE-0.8.0 for scope.
+
+SMOOTHER DAILY USE
+Search keeps existing controls and focus. Use categories and current-state filters
+to find a tweak. Refresh rereads Windows; applying always checks the real current
+state. Navigation keeps each page position, guide selections and connection input.
+Live changes batches output and lets you pause Follow latest to read earlier steps.
+Large imported recordings are prepared in a background worker.

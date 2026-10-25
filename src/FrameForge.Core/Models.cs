@@ -1,7 +1,7 @@
 namespace FrameForge.Core;
 
 public enum Vendor { Unknown, Amd, Nvidia, Intel }
-public enum ActionKind { Registry, PowerPlan, Settings, Web }
+public enum ActionKind { Registry, PowerPlan, Settings, Web, RegistryGroup, Desktop, Service, MachineRegistry, PowerSetting }
 public enum Risk { Low, Review, Experimental }
 public sealed record HardwareSnapshot
 {
@@ -29,6 +29,7 @@ public sealed record HardwareSnapshot
     public List<string> MemoryModules { get; init; } = [];
     public List<string> Disks { get; init; } = [];
     public List<string> Volumes { get; init; } = [];
+    public List<StorageVolume> StorageVolumes { get; init; } = [];
     public List<string> Network { get; init; } = [];
     public List<string> Startup { get; init; } = [];
     public List<string> Processes { get; init; } = [];
@@ -42,10 +43,11 @@ public sealed record Gpu(string Name, Vendor Vendor, string Driver);
 public sealed record SettingValue(bool Exists, string? Value, string Kind = "DWord");
 public sealed record Optimization(string Id, string Name, string Category, string Description,
     string Benefit, string Evidence, Risk Risk, ActionKind Kind, string Target, string? Value = null,
-    bool Admin = false, bool Restart = false, Vendor Vendor = Vendor.Unknown, bool Smart = false)
+    bool Admin = false, bool Restart = false, Vendor Vendor = Vendor.Unknown, bool Smart = false, int MinBuild = 19045)
 {
-    public bool Reversible => Kind is ActionKind.Registry or ActionKind.PowerPlan;
+    public bool Reversible => Kind is ActionKind.Registry or ActionKind.PowerPlan or ActionKind.RegistryGroup or ActionKind.Desktop or ActionKind.Service or ActionKind.MachineRegistry or ActionKind.PowerSetting;
     public string? Incompatibility(HardwareSnapshot h) => !h.WindowsSupported ? "Requires Windows 10 22H2 or Windows 11 (build 19045+)." :
+        h.WindowsBuild>0 && h.WindowsBuild<MinBuild ? "Requires Windows build "+MinBuild+" or later." :
         Vendor != Vendor.Unknown && !h.Has(Vendor) ? $"No {Vendor} GPU detected." :
         Kind == ActionKind.PowerPlan && h.Laptop != false ? "Manual power review only on laptops or unknown chassis; OEM/thermal restrictions may apply." : null;
     public string Reason(HardwareSnapshot h) => Incompatibility(h) ?? (h.TotalMemory is > 0 and < 16L * 1024 * 1024 * 1024 && Category == "Startup Optimization" ?
@@ -68,11 +70,15 @@ public sealed record ChangeRecord
     public string? Error { get; set; }
     public bool Restart { get; init; }
     public string Feedback { get; set; } = "Unrated";
+    public bool? WriteCompleted {get;set;}
+    public bool RestoreInProgress {get;set;}
 }
 public sealed record AuditEvent(DateTimeOffset Time, string Kind, string Subject, string Result);
-public sealed record Preferences(string Mode = "Safe", bool ShowAdvanced = false, string GamingGpu = "Automatic");
+public sealed record Preferences(string Mode = "Safe", bool ShowAdvanced = false, string GamingGpu = "Automatic",bool WatchChanges=true,string[]? LowEndSelection=null);
 
 public static class HardwareRules
 {
     public static Vendor IdentifyVendor(string name)=>name.Contains("NVIDIA",StringComparison.OrdinalIgnoreCase)?Vendor.Nvidia : name.Contains("AMD",StringComparison.OrdinalIgnoreCase)||name.Contains("Radeon",StringComparison.OrdinalIgnoreCase)||name.Contains("Advanced Micro",StringComparison.OrdinalIgnoreCase)?Vendor.Amd : name.Contains("Intel",StringComparison.OrdinalIgnoreCase)?Vendor.Intel:Vendor.Unknown;
 }
+
+public sealed record StorageVolume(string Name,long TotalBytes,long FreeBytes);
