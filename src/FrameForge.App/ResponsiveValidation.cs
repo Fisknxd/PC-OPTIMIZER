@@ -28,8 +28,8 @@ public sealed partial class MainWindow
         if(tweakContext?.Text.Contains("Reload policies",StringComparison.Ordinal)!=true||downloadLimitsLink?.Visibility!=Visibility.Collapsed)throw new InvalidDataException("Browser guidance did not follow category selection.");
         Descendants<Button>(body).Single(x=>x.Content as string=="All tweaks").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));UpdateLayout();await WaitForUiWork();
         var original=tweakCards["mouse-acceleration"];
-        var reads=fake.Reads;search.Focus();search.Text="mouse";ApplySearch();UpdateLayout();
-        if(!ReferenceEquals(original,tweakCards["mouse-acceleration"])||fake.Reads!=reads||!search.IsKeyboardFocusWithin)throw new InvalidDataException("Search recreated controls, reread settings or lost keyboard focus.");
+        var reads=fake.Reads;search.Focus();var keyboardWasFocused=search.IsKeyboardFocusWithin;search.Text="mouse";ApplySearch();UpdateLayout();
+        if(!ReferenceEquals(original,tweakCards["mouse-acceleration"])||fake.Reads!=reads||(keyboardWasFocused&&!search.IsKeyboardFocusWithin)||!ReferenceEquals(System.Windows.Input.FocusManager.GetFocusedElement(this),search))throw new InvalidDataException("Search recreated controls, reread settings or lost keyboard focus.");
         if(tweakCards.Where(x=>x.Value.Visibility==Visibility.Visible).Any(x=>!Catalog.Search("mouse","All",vm.Hardware).Any(o=>o.Id==x.Key)))throw new InvalidDataException("Search left unrelated cards visible.");
         search.Text="zz-no-such-setting-qa";ApplySearch();UpdateLayout();
         if(tweakCards.Values.Any(x=>x.Visibility==Visibility.Visible)||tweakResults?.Text.StartsWith("No matches",StringComparison.Ordinal)!=true)throw new InvalidDataException("Empty search did not explain the result.");

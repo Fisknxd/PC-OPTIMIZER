@@ -56,7 +56,12 @@ public sealed partial class MainWindow
         UpdateLayout(); Capture(this,Path.Combine(output,"Features-toggles.png"));
         var cards=Descendants<TweakCardGrid>(body).Single();
         var first=(System.Windows.FrameworkElement)cards.Children[0];var second=(System.Windows.FrameworkElement)cards.Children[1];
-        if(second.TranslatePoint(new(0,0),cards).X<=first.TranslatePoint(new(0,0),cards).X)throw new InvalidDataException("Wide tweak cards did not use two columns.");
+        var sideBySide=second.TranslatePoint(new(0,0),cards).X>first.TranslatePoint(new(0,0),cards).X;
+        if(sideBySide!=(cards.ActualWidth>=900))throw new InvalidDataException($"Tweak columns do not match available width {cards.ActualWidth:F0}.");
+        // Hosted Windows desktops may constrain a requested 1360px window. Verify
+        // both layout branches directly, independently of the monitor work area.
+        var layoutFixture=new TweakCardGrid();var a=new System.Windows.Controls.Border {Height=80};var b=new System.Windows.Controls.Border {Height=120};layoutFixture.Children.Add(a);layoutFixture.Children.Add(b);
+        foreach(var width in new[]{899d,900d,1200d}){layoutFixture.Measure(new Size(width,double.PositiveInfinity));layoutFixture.Arrange(new Rect(0,0,width,layoutFixture.DesiredSize.Height));if((b.TranslatePoint(new(0,0),layoutFixture).X>a.TranslatePoint(new(0,0),layoutFixture).X)!=(width>=900))throw new InvalidDataException("Card-grid breakpoint failed: "+width);}
         Width=MinWidth; Height=MinHeight; UpdateLayout(); Capture(this,Path.Combine(output,"Features-toggles-compact.png"));
         if(second.TranslatePoint(new(0,0),cards).Y<=first.TranslatePoint(new(0,0),cards).Y)throw new InvalidDataException("Tweak cards did not reflow after narrowing the window.");
         Width=1360; Height=900;

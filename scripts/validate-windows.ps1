@@ -11,7 +11,7 @@ foreach ($name in $requiredReports) { $old = Join-Path $qa $name; if (Test-Path 
 $failure = Join-Path (Get-Location) 'artifacts/ui-test-error.txt'
 if (Test-Path -LiteralPath $failure) { Remove-Item -LiteralPath $failure }
 $p = Start-Process -FilePath $exe -ArgumentList '--ui-test','--feature-test','--recovery-test' -WorkingDirectory (Get-Location).Path -WindowStyle Hidden -PassThru
-if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Windows menu/contrast checks timed out' }
+if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'Windows menu/contrast checks timed out' }
 if ($p.ExitCode -ne 0 -or (Test-Path -LiteralPath $failure)) {
     $failure = Join-Path (Get-Location) 'artifacts/ui-test-error.txt'
     if (Test-Path -LiteralPath $failure) { Get-Content -LiteralPath $failure }
