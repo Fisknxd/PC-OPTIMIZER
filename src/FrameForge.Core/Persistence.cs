@@ -92,6 +92,14 @@ public sealed class OperationEngine(ISystemSettings system, JsonStore store, Act
             else fresh=await Preview(op,hardware);
             if (fresh != preview) throw new InvalidOperationException("Configuration changed since preview. Review a new preview.");
             if (fresh.Current == fresh.Proposed) return null;
+            // Recheck dependencies after confirmation, immediately before preparing a write.
+            // A UI preflight alone is stale if another tool changes the base browser policy.
+            if(FeatureToggles.Supports(op)&&fresh.Proposed==FeatureToggles.Target(op,true)&&ProfileSelection.Dependencies.TryGetValue(op.Id,out var requiredId))
+            {
+                var required=Catalog.All.Single(x=>x.Id==requiredId);
+                var dependency=await PreviewToggle(required,hardware,true);
+                if(FeatureToggles.Enabled(required,dependency.Current)!=true)throw new InvalidOperationException("Turn on "+required.Name+" first so this setting can take effect. No changes made.");
+            }
             var changes=History;
             var record=new ChangeRecord { OperationId=op.Id,Name=op.Name,Before=fresh.Current,After=fresh.Proposed,Session=session,Restart=op.Restart,WriteCompleted=false };
             changes.Add(record); store.Save("history.json",changes); // write-ahead, before touching Windows

@@ -13,25 +13,8 @@ namespace FrameForge.Windows;
 
 public static class Commands
 {
-    public static async Task<string> Run(string file,IEnumerable<string> args,int seconds=30,ActivityFeed? activity=null)
-    {
-        var info=new ProcessStartInfo(file) { UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true };
-        foreach(var arg in args) info.ArgumentList.Add(arg);
-        using var p=Process.Start(info)??throw new IOException("Could not start Windows utility.");
-        async Task<string> Read(StreamReader reader,string prefix)
-        {
-            var text=new StringBuilder();
-            while(await reader.ReadLineAsync() is {} line) { text.AppendLine(line); activity?.Report(prefix+line); }
-            return text.ToString();
-        }
-        var output=Read(p.StandardOutput,""); var error=Read(p.StandardError,"stderr: ");
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
-        try { await p.WaitForExitAsync(timeout.Token); }
-        catch(OperationCanceledException) { try { p.Kill(entireProcessTree:true); } catch(InvalidOperationException) { } throw new TimeoutException("Windows utility timed out; rescan before retrying."); }
-        var text=await output; var err=await error;
-        if(p.ExitCode!=0) throw new IOException($"{Path.GetFileName(file)} failed ({p.ExitCode}): {err.Trim()} {text.Trim()}");
-        return text.Trim();
-    }
+    public static Task<string> Run(string file,IEnumerable<string> args,int seconds=30,ActivityFeed? activity=null)=>
+        ProcessRunner.Run(file,args,TimeSpan.FromSeconds(seconds),activity);
     public static string SystemFile(string file)=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),file);
     public static Task<string> PowerShell(string fixedScript,int seconds=60,ActivityFeed? activity=null)
     {

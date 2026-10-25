@@ -20,6 +20,20 @@ public sealed partial class MainWindow
     string importedSource="";
     string benchmarkLabel="",benchmarkNotes="";
     string importedApplication="";
+    BenchmarkPresentation? importedPresentation;
+
+    // Keep full measurements for statistics, but prepare the display once in the
+    // worker that imports the capture. Resizing or returning to this page must not
+    // sort a million frames again on the dispatcher.
+    sealed record BenchmarkPresentation(FrameTrace Trace,double DurationSeconds,double MedianMs,int Over60FpsBudget,int Over50Ms,double[] Chart);
+    static BenchmarkPresentation PrepareBenchmark(FrameTrace trace)=>new(trace,trace.DurationSeconds,trace.MedianMs,trace.FramesOverBudget(1000d/60),trace.FramesOverBudget(50),Benchmark.Peaks(trace.Milliseconds,2048));
+    BenchmarkPresentation CurrentBenchmarkPresentation(FrameTrace trace)
+    {
+        // Synthetic UI fixtures can assign importedTrace directly. Actual imports
+        // always arrive with their worker-prepared presentation already cached.
+        if(importedPresentation==null||!ReferenceEquals(importedPresentation.Trace,trace))importedPresentation=PrepareBenchmark(trace);
+        return importedPresentation;
+    }
 
     void StopLiveMonitor()
     {
@@ -113,9 +127,10 @@ public sealed partial class MainWindow
         void DrawTrace()
         {
             metrics.Children.Clear(); if(importedTrace is not {} trace) return;
+            var presentation=CurrentBenchmarkPresentation(trace);
             metrics.Children.Add(Columns(Metric("Average FPS",$"{trace.Stats.AverageFps:F1}","Overall pace in this recording"),Metric("Slowest 1% FPS",$"{trace.Stats.LowOnePercentFps:F1}","Helps reveal uneven frame delivery"),Metric("Slow-frame time",$"{trace.Stats.P99FrameMs:F2} ms","99th percentile · lower is better")));
-            traceChart.SetData(trace.Milliseconds,xCaption:$"{trace.Stats.Frames:N0} frames · {trace.DurationSeconds:F1} seconds →");
-            traceInfo.Text=$"{importedSource} · {trace.Metric}\nMedian {trace.MedianMs:F2} ms · {trace.FramesOverBudget(1000d/60):N0} frames slower than 60 FPS · {trace.FramesOverBudget(50):N0} over 50 ms\nPeaks stay visible in the chart. Imported app/CPU intervals are not displayed FPS or input-latency measurements.";
+            traceChart.SetData(presentation.Chart,xCaption:$"{trace.Stats.Frames:N0} frames · {presentation.DurationSeconds:F1} seconds →");
+            traceInfo.Text=$"{importedSource} · {trace.Metric}\nMedian {presentation.MedianMs:F2} ms · {presentation.Over60FpsBudget:N0} frames slower than 60 FPS · {presentation.Over50Ms:N0} over 50 ms\nPeaks stay visible in the chart. Imported app/CPU intervals are not displayed FPS or input-latency measurements.";
         }
         content.Children.Add(Row(PrimaryButton("Import frame-time CSV",()=>Run(async ()=>
         {
@@ -125,7 +140,9 @@ public sealed partial class MainWindow
             if(file.Length>20*1024*1024) throw new InvalidDataException("CSV exceeds the 20 MiB import limit.");
             var csv=await File.ReadAllTextAsync(file.FullName);
             var captures=await Task.Run(()=>BenchmarkImport.Read(csv));var selected=ChooseBenchmarkCapture(captures);if(selected==null)return;
-            var trace=selected.ToTrace();importedTrace=trace;importedApplication=selected.Application;importedSource=file.Name+(selected.Application.Length==0?"":" · "+selected.Application+" · PID "+selected.ProcessId+" · stream "+selected.SwapChain);comparison.Text="New capture loaded. Compare against a saved baseline below.";
+            vm.Status="Preparing the recording and chart…";
+            var prepared=await Task.Run(()=>PrepareBenchmark(selected.ToTrace()));
+            var trace=prepared.Trace;importedTrace=trace;importedPresentation=prepared;importedApplication=selected.Application;importedSource=file.Name+(selected.Application.Length==0?"":" · "+selected.Application+" · PID "+selected.ProcessId+" · stream "+selected.SwapChain);comparison.Text="New capture loaded. Compare against a saved baseline below.";
             DrawTrace(); vm.Status=$"Imported {trace.Stats.Frames:N0} measured frames. Add a label and save this run to your library."+(selected.InitialRowsSkipped>0?" One initial zero interval was excluded.":"");
         })),Button("Import help",()=>MessageBox.Show(this,"PresentMon: import the original CSV. Choose one game/process/presentation stream if the file contains several. Supported timing columns: MsBetweenPresents (including the older ms spelling), or FrameTime from PresentMon 2.x. These measure different intervals and cannot be mixed in a comparison.\n\nSimple format:\nFrameTimeMs\n16.67\n17.20\n…\n\nAt least 100 valid frames per stream, at most 1,000,000 total rows and 20 MiB. A first zero interval in each PresentMon stream is counted and excluded; other invalid rows stop the import. No FPS-sample conversion or displayed/input-latency claims.","Import a measured recording"))));
         content.Children.Add(Columns(label,notes)); content.Children.Add(metrics); content.Children.Add(Card(Panel(traceInfo,traceChart)));
@@ -133,7 +150,7 @@ public sealed partial class MainWindow
         {
             if(importedTrace is not {} trace) throw new InvalidOperationException("Import a measured capture first.");
             RequireScan();
-            history.Add(new(DateTimeOffset.UtcNow,importedSource,trace.Stats,vm.Hardware,label.Text.Trim(),notes.Text.Trim(),trace.DurationSeconds,trace.Metric,importedApplication));
+            history.Add(new(DateTimeOffset.UtcNow,importedSource,trace.Stats,vm.Hardware,label.Text.Trim(),notes.Text.Trim(),CurrentBenchmarkPresentation(trace).DurationSeconds,trace.Metric,importedApplication));
             history=history.TakeLast(100).ToList(); store.Save("benchmarks.json",history); RefreshRuns();
             vm.Status="Saved benchmark statistics, test notes and the latest hardware snapshot. The library keeps the latest 100 runs; raw frames remain in your source CSV.";
             return Task.CompletedTask;

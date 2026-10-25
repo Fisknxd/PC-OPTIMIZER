@@ -8,7 +8,8 @@ public sealed class ExpandedTweakTests:IDisposable
     {
         public bool IsAdministrator=>true;
         public SettingValue State=new(false,null);
-        public Task<SettingValue> Read(Optimization operation)=>Task.FromResult(State);
+        public Dictionary<string,SettingValue> OtherStates=[];
+        public Task<SettingValue> Read(Optimization operation)=>Task.FromResult(OtherStates.GetValueOrDefault(operation.Id,State));
         public Task Write(Optimization operation,SettingValue state){State=state;return Task.CompletedTask;}
     }
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
@@ -16,6 +17,7 @@ public sealed class ExpandedTweakTests:IDisposable
     [Theory] [MemberData(nameof(Tweaks))] public async Task EverySwitchWorksInBothDirectionsAndRestoresItsOriginal(string id)
     {
         var operation=Catalog.All.Single(x=>x.Id==id); var system=new Settings{State=FeatureToggles.Target(operation,false)}; var original=system.State;
+        if(ProfileSelection.Dependencies.TryGetValue(id,out var required))system.OtherStates[required]=FeatureToggles.Target(Catalog.All.Single(x=>x.Id==required),true);
         var engine=new OperationEngine(system,new JsonStore(root)); var hardware=new HardwareSnapshot{WindowsSupported=true,Laptop=false};
         var on=await engine.Apply(await engine.PreviewToggle(operation,hardware,true),hardware,"on"); Assert.Equal("Applied",on!.Status); Assert.True(FeatureToggles.Enabled(operation,system.State));
         var off=await engine.Apply(await engine.PreviewToggle(operation,hardware,false),hardware,"off"); Assert.Equal("Applied",off!.Status); Assert.False(FeatureToggles.Enabled(operation,system.State));

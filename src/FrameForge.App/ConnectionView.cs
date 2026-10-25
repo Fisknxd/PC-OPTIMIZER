@@ -4,11 +4,13 @@ using FrameForge.Windows;
 namespace FrameForge.App;
 public sealed partial class MainWindow
 {
+    string connectionHost="";
     void Tools()
     {
         body.Children.Add(Text("Check your connection",25,"#F1F5FC",true));
         body.Children.Add(Text("Look for missed replies or uneven response times. This checks only the address you enter.",13,"#BDCCE0"));
-        var host=new TextBox {Tag="Router address, IP address or server name",MinWidth=300};
+        var host=new TextBox {Text=connectionHost,Tag="Router address, IP address or server name",MinWidth=300};
+        host.TextChanged+=(_,_)=>connectionHost=host.Text;
         var result=Text("Enter an address and run the test. No network settings are changed.",13,"#BDCCE0");
         body.Children.Add(Card(Panel(Text("Response-time test",19,"#F1F5FC",true),Row(host,PrimaryButton("Test connection",()=>Run(async ()=>
         {

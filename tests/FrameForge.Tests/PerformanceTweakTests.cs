@@ -9,8 +9,9 @@ public sealed class PerformanceTweakTests:IDisposable
     {
         public bool IsAdministrator=>true;public bool Available=true,IgnoreWrites;public int Writes;
         public SettingValue State=PowerSettings.Pack(new(Guid.NewGuid(),70,45));
+        public Dictionary<string,SettingValue> OtherStates=[];
         public Task CheckAvailability(Optimization operation)=>Available?Task.CompletedTask:Task.FromException(new PlatformNotSupportedException("Browser missing"));
-        public Task<SettingValue> Read(Optimization operation)=>Task.FromResult(State);
+        public Task<SettingValue> Read(Optimization operation)=>Task.FromResult(OtherStates.GetValueOrDefault(operation.Id,State));
         public Task Write(Optimization operation,SettingValue state){Writes++;if(!IgnoreWrites)State=state;return Task.CompletedTask;}
     }
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
@@ -49,6 +50,7 @@ public sealed class PerformanceTweakTests:IDisposable
     public async Task CustomSupportedPolicyValuesSurviveUndo(string id,int value)
     {
         var op=Op(id);var original=new SettingValue(true,value.ToString());var settings=new Settings{State=original};var engine=new OperationEngine(settings,new(root));
+        if(id=="edge-sleep-sooner")settings.OtherStates["edge-sleep"]=FeatureToggles.Target(Op("edge-sleep"),true);
         Assert.Null(FeatureToggles.Enabled(op,original));var record=await engine.Apply(await engine.PreviewToggle(op,Hardware,true),Hardware,"policy");
         Assert.Equal("Applied",record!.Status);Assert.Equal("Restored",(await engine.Undo(record.Id)).Status);Assert.Equal(original,settings.State);
     }

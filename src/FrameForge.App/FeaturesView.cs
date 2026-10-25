@@ -22,37 +22,34 @@ public sealed partial class MainWindow
     {
         powerReads.Clear();
         body.Children.Add(Text(qol?"Your desktop, your way":"Tune your PC",25,"#F1F5FC",true));
-        body.Children.Add(Text("Pick what your PC needs. Every change keeps its previous setting in Recovery.",13,"#BDCCE0"));
+        body.Children.Add(Text("Choose a setting, see what it does, and keep an undo in Recovery.",13,"#BDCCE0"));
+        var sectionButtons=new Dictionary<string,Button>();ComboBox? otherCategories=null;
+        void SelectSection(string section){search.Text="";searchDelay.Stop();query="";if(qol)desktopSection=section;else featureSection=section;foreach(var pair in sectionButtons)pair.Value.Background=Brush(pair.Key==section?"#27534F":"#23334C");if(otherCategories!=null)otherCategories.SelectedItem=otherCategories.Items.Contains(section)?section:"More categories";FilterTweaks();}
         var sections=Row();
         foreach(var section in qol?new[]{"All desktop","Appearance","Less clutter"}:new[]{"For gaming","All tweaks","Browser memory","Power checks"})
         {
-            var button=Button(section,()=> { if(qol)desktopSection=section;else featureSection=section; Render(); });
-            button.Background=Brush((qol?desktopSection:featureSection)==section?"#27534F":"#23334C"); sections.Children.Add(button);
+            var button=Button(section,()=>SelectSection(section));
+            button.Background=Brush((qol?desktopSection:featureSection)==section?"#27534F":"#23334C"); sections.Children.Add(button);sectionButtons[section]=button;
         }
         body.Children.Add(sections);
         if(!qol)
         {
         var other=new ComboBox {ItemsSource=new[]{"More categories","Background work","Downloads","Mouse & desktop","Less clutter","Appearance","Windows controls"},MinWidth=180,SelectedItem=new[]{"Background work","Downloads","Mouse & desktop","Less clutter","Appearance","Windows controls"}.Contains(featureSection)?featureSection:"More categories"};
-        other.SetValue(AutomationProperties.NameProperty,"Other tweak categories");other.SelectionChanged+=(_,_)=> {if(other.SelectedItem is string section&&section!="More categories"){featureSection=section;Render();}};sections.Children.Add(other);
+        otherCategories=other;other.SetValue(AutomationProperties.NameProperty,"Other tweak categories");other.SelectionChanged+=(_,_)=> {if(other.SelectedItem is string section&&section!="More categories"){SelectSection(section);}};sections.Children.Add(other);
         }
         var mode=ReviewLevelPicker(165,Render);
         mode.SetValue(AutomationProperties.NameProperty,"Feature review mode");
-        body.Children.Add(Row(Text("Options",13,"#BDCCE0"),mode,Button("Refresh",()=>Render()),Button("Create a restore point",()=>Go("Restore"))));
-        if(preferences.Mode=="Safe")body.Children.Add(Button("Unlock choices with tradeoffs",()=> {preferences=preferences with {Mode="Balanced"};store.Save("preferences.json",preferences);Render();}));
-        if(!qol&&featureSection=="Browser memory")body.Children.Add(Text("After changing a browser option, use Check in browser → Reload policies and look for OK. Edge sleeping-tab policies support local/work profiles; personal Microsoft-account profiles ignore them.",13,"#BDCCE0"));
-        if(!qol&&featureSection=="Downloads")body.Children.Add(Row(Button("Open Windows download limits ↗",()=>Run(()=>Handle(Catalog.All.Single(x=>x.Id=="update-downloads"))))));
+        var stateFilter=new ComboBox {ItemsSource=new[]{"All states","On","Off","Needs review"},SelectedItem=tweakFilter,MinWidth=150};stateFilter.SetValue(AutomationProperties.NameProperty,"Filter tweaks by current state");stateFilter.SelectionChanged+=(_,_)=> {tweakFilter=stateFilter.SelectedItem as string??"All states";FilterTweaks();};
+        body.Children.Add(Row(Text("Choices",13,"#BDCCE0"),mode,stateFilter,Button("Refresh",RefreshSettings),Button("Recovery",()=>Go("Restore"))));
+        if(preferences.Mode=="Safe")body.Children.Add(Button("Unlock choices with tradeoffs",()=> {SavePreferences(preferences with {Mode="Balanced"});Render();}));
+        tweakContext=Text("",13,"#BDCCE0");body.Children.Add(tweakContext);
+        if(!qol){downloadLimitsLink=Button("Open Windows download limits ↗",()=>Run(()=>Handle(Catalog.All.Single(x=>x.Id=="update-downloads"))));body.Children.Add(downloadLimitsLink);}
         if(!scanned) body.Children.Add(Card(Panel(Text("Scan to unlock changes",17,"#FFD08A",true),Button("Scan PC",()=>Run(Scan)))));
-        var shown=Catalog.Search(query,"All",vm.Hardware).Where(o=>qol?FeatureToggles.Supports(o)&&TweakDefinitions.Get(o).Group is "Appearance" or "Less clutter"&&(desktopSection=="All desktop"||TweakDefinitions.Get(o).Group==desktopSection):!string.IsNullOrWhiteSpace(query)||(featureSection switch {
-            "Windows controls"=>!FeatureToggles.Supports(o)&&o.Kind is not (ActionKind.Service or ActionKind.PowerSetting),
-            "Power checks"=>o.Kind is ActionKind.PowerSetting or ActionKind.PowerPlan,
-            "For gaming"=>PerformanceTweaks.Relevant(o),
-            _=>FeatureToggles.Supports(o)&&(featureSection is "All tweaks" or "Feature toggles"||TweakDefinitions.Get(o).Group==featureSection)
-        })).ToList();
-        if(!qol&&featureSection=="For gaming"&&string.IsNullOrWhiteSpace(query))body.Children.Add(Text("Start with Low-end PC for a ready-made selection, or choose individual switches here. Browser and download settings help only when that work competes with your game.",13,"#BDCCE0"));
-        if(shown.Count==0) body.Children.Add(Text("No matches. Try another category or clear search.",14,"#BDCCE0"));
+        var shown=Catalog.All.Where(o=>qol?FeatureToggles.Supports(o)&&TweakDefinitions.Get(o).Group is "Appearance" or "Less clutter":o.Kind!=ActionKind.Service).ToList();
+        tweakResults=Text("Checking available choices…",12,"#BDCCE0");body.Children.Add(tweakResults);
         var cards=new List<UIElement>();
-        foreach(var operation in shown.OrderBy(o=>FeatureToggles.Supports(o)?TweakDefinitions.Get(o).Group switch {"Gaming"=>0,"Low-end PC"=>1,"Browser memory"=>2,"Background work"=>3,"Downloads"=>4,_=>5}:6)) cards.Add(FeatureToggles.Supports(operation)?FeatureCard(operation):operation.Kind==ActionKind.PowerSetting?PowerSettingCard(operation):ExternalFeatureCard(operation));
-        var grid=new TweakCardGrid();foreach(var card in cards)grid.Children.Add(card);body.Children.Add(grid);
+        foreach(var operation in shown.OrderBy(o=>FeatureToggles.Supports(o)?TweakDefinitions.Get(o).Group switch {"Gaming"=>0,"Low-end PC"=>1,"Browser memory"=>2,"Background work"=>3,"Downloads"=>4,_=>5}:6)) {var card=FeatureToggles.Supports(operation)?FeatureCard(operation):operation.Kind==ActionKind.PowerSetting?PowerSettingCard(operation):ExternalFeatureCard(operation);tweakCards[operation.Id]=card;if(!FeatureToggles.Supports(operation)&&operation.Kind!=ActionKind.PowerSetting)SetTweakState(operation.Id,"Manual",!scanned||operation.Incompatibility(vm.Hardware)!=null||ModeReason(operation)!=null);cards.Add(card);}
+        var grid=new TweakCardGrid();foreach(var card in cards)grid.Children.Add(card);FilterTweaks();body.Children.Add(grid);
     }
 
     Border FeatureCard(Optimization operation)
@@ -73,22 +70,24 @@ public sealed partial class MainWindow
         var card=Card(extra); card.Padding=new(16);
         SettingValue? current=null;
         bool? enabled=null;
-        async Task ReadState()
+        var generation=pageGeneration;bool loaded=false;
+        async Task ReadState(bool fresh=false)
         {
             try
             {
-                await system.CheckAvailability(operation);current=await system.Read(operation); enabled=FeatureToggles.Enabled(operation,current);
+                current=await ReadSetting(operation,fresh);if(!IsCurrent(generation))return;enabled=FeatureToggles.Enabled(operation,current);
                 toggle.IsChecked=enabled==true;
                 state.Text=enabled==true?"● On":enabled==false?"○ Off":current.Exists?"Custom":"Default";
-                toggle.SetValue(AutomationProperties.ItemStatusProperty,enabled==true?"On":enabled==false?"Off":"Windows default, no explicit value configured");
+                toggle.SetValue(AutomationProperties.ItemStatusProperty,enabled==true?"On":enabled==false?"Off":current.Exists?"Custom saved value":"Windows default, no explicit value configured");
                 state.Foreground=Brush(enabled==true?"#5EE0BA":"#BDCCE0");
                 var blocked=!scanned?"Scan PC before changing this feature.":operation.Incompatibility(vm.Hardware)??ModeReason(operation)??(operation.Admin&&!system.IsAdministrator?"Administrator access is needed for this setting.":null);
                 reason.Text=blocked??"";
                 reason.Visibility=reason.Text.Length==0?Visibility.Collapsed:Visibility.Visible;
                 if(blocked==null) reason.Foreground=Brush("#BDCCE0");
-                toggle.IsEnabled=blocked==null;
+                toggle.IsEnabled=blocked==null;SetTweakState(operation.Id,enabled==true?"On":enabled==false?"Off":"Custom",blocked!=null);
             }
-            catch(Exception e) { state.Text="Unavailable";state.Foreground=Brush("#FFD08A");reason.Text=e.Message;reason.Visibility=Visibility.Visible;toggle.IsEnabled=false;toggle.SetValue(AutomationProperties.ItemStatusProperty,"Unavailable: "+e.Message); }
+            catch(OperationCanceledException) when(!IsCurrent(generation)) { }
+            catch(Exception e) { if(!IsCurrent(generation))return;SetTweakState(operation.Id,"Unavailable");state.Text="Unavailable";state.Foreground=Brush("#FFD08A");reason.Text=e.Message;reason.Visibility=Visibility.Visible;toggle.IsEnabled=false;toggle.SetValue(AutomationProperties.ItemStatusProperty,"Unavailable: "+e.Message); }
         }
         toggle.Click+=(_,_)=>
         {
@@ -97,10 +96,11 @@ public sealed partial class MainWindow
             Run(async ()=>
             {
                 try { await SetFeature(operation,requested); }
-                finally { await ReadState(); }
+                finally { await ReadState(true); }
             });
         };
-        _=ReadState(); return card;
+        card.IsVisibleChanged+=(_,_)=> {if(card.IsVisible&&!loaded){loaded=true;featureReads.Add(ReadState());}};
+        return card;
     }
 
     Border ExternalFeatureCard(Optimization operation)
@@ -124,14 +124,14 @@ public sealed partial class MainWindow
         if(enabled&&operation.Id is "chrome-memory-strong" or "edge-sleep-sooner")
         {
             var required=Catalog.All.Single(x=>x.Id==(operation.Id=="chrome-memory-strong"?"chrome-memory":"edge-sleep"));
-            if(FeatureToggles.Enabled(required,await system.Read(required))!=true)throw new InvalidOperationException("Turn on "+required.Name+" first so this setting can take effect.");
+            if(FeatureToggles.Enabled(required,await SettingsWork(()=>system.Read(required)))!=true)throw new InvalidOperationException("Turn on "+required.Name+" first so this setting can take effect.");
         }
-        var preview=await engine.PreviewToggle(operation,vm.Hardware,enabled);
+        var preview=await SettingsWork(()=>engine.PreviewToggle(operation,vm.Hardware,enabled));
         if(preview.Current==preview.Proposed) { vm.Status=operation.Name+" is already "+(enabled?"on.":"off."); return; }
         if(!(FeatureConfirmation?.Invoke(preview)??ReviewFeature(preview,enabled))) { vm.Status="Change cancelled. "+operation.Name+" was left unchanged."; return; }
         Watch(operation.Name);
-        var result=await engine.Apply(preview,vm.Hardware,Guid.NewGuid().ToString("N"));
-        if(result?.Status=="Failed") throw new IOException(result.Error+" Original values remain available in Restore.");
+        var result=await SettingsWork(()=>engine.Apply(preview,vm.Hardware,Guid.NewGuid().ToString("N")));
+        if(result?.Status=="Failed") throw new IOException(result.Error+" Original values remain available in Recovery.");
         vm.Status=$"{operation.Name}: {(enabled?"On":"Off")} · saved value verified. Original saved in Recovery."+(BrowserPolicies.Supports(operation)?" Check acceptance in the browser policy page.":"");
     }
 

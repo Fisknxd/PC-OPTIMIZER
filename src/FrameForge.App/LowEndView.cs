@@ -9,8 +9,8 @@ public sealed partial class MainWindow
     {
         body.Children.Add(Text("Make room for the game",25,"#F1F5FC",true));
         body.Children.Add(Text("A focused profile for low-memory PCs and weak graphics. Every selected change is backed up. Check the tradeoffs before applying.",13,"#BDCCE0"));
-        body.Children.Add(Row(Button("Refresh",Render),Button("Potato Settings",()=>Go("Potato Settings")),Button("Services",()=>Go("Services")),Button("Create restore point",()=>Go("Restore"))));
-        if(preferences.Mode=="Safe")body.Children.Add(Button("Unlock choices with tradeoffs",()=> {preferences=preferences with {Mode="Balanced"};store.Save("preferences.json",preferences);Render();}));
+        body.Children.Add(Row(Button("Refresh",RefreshSettings),Button("Potato Settings",()=>Go("Potato Settings")),Button("Services",()=>Go("Services")),Button("Create restore point",()=>Go("Restore"))));
+        if(preferences.Mode=="Safe")body.Children.Add(Button("Unlock choices with tradeoffs",()=> {SavePreferences(preferences with {Mode="Balanced"});Render();}));
         var generation=++lowEndGeneration;var options=new StackPanel();var optional=new StackPanel();var selected=new Dictionary<CheckBox,(Optimization Op,LowEndChoice Choice)>();var status=Text("Reading current values…",13,"#5EE0BA",true);
         var availableIds=new HashSet<string>();var configuredIds=new HashSet<string>();bool loading=true,updating=false;
         var presetButtons=Row();presetButtons.IsEnabled=false;
@@ -20,10 +20,10 @@ public sealed partial class MainWindow
             foreach(var entry in selected.Where(x=>x.Key.IsChecked==true).Select(x=>x.Value))
             {
                 if(ModeReason(entry.Op) is {} blocked)throw new InvalidOperationException(blocked);
-                previews.Add(FeatureToggles.Supports(entry.Op)?await engine.PreviewToggle(entry.Op,vm.Hardware,entry.Choice.Enabled):await engine.Preview(entry.Op,vm.Hardware));
+                previews.Add(FeatureToggles.Supports(entry.Op)?await SettingsWork(()=>engine.PreviewToggle(entry.Op,vm.Hardware,entry.Choice.Enabled)):await SettingsWork(()=>engine.Preview(entry.Op,vm.Hardware)));
             }
             if(previews.Count==0)throw new InvalidOperationException("Select an available change first.");Watch("Low-end PC profile");
-            var result=await new TuningPlanRunner(engine).Apply(previews,vm.Hardware);
+            var result=await SettingsWork(()=>new TuningPlanRunner(engine).Apply(previews,vm.Hardware));
             vm.Status=$"{result.Applied} changes applied; {result.AlreadyConfigured} already configured."+(result.Error==null?" Originals saved in Recovery.":" Stopped: "+result.Error+" Previous changes are saved in Recovery.");Render();
         }));apply.IsEnabled=false;
 
@@ -38,7 +38,7 @@ public sealed partial class MainWindow
         {
             if(ids.Any(id=>LowEndPlans.Choices.Any(x=>x.OperationId==id&&!x.Selected)))optionalPanel.IsExpanded=true;
             updating=true;try{foreach(var (check,entry) in selected)check.IsChecked=check.IsEnabled&&ids.Contains(entry.Op.Id);}finally{updating=false;}
-            if(save&&!loading){preferences=preferences with {LowEndSelection=ids.Order().ToArray()};store.Save("preferences.json",preferences);}UpdateSelection();
+            if(save&&!loading){SavePreferences(preferences with {LowEndSelection=ids.Order().ToArray()});}UpdateSelection();
         }
         async Task Read()
         {
@@ -55,13 +55,14 @@ public sealed partial class MainWindow
                 check.Checked+=(_,_)=>Changed();check.Unchecked+=(_,_)=>Changed();
                 try
                 {
-                    if(!scanned)throw new InvalidOperationException("Scan PC first.");if((op.Incompatibility(vm.Hardware)??ModeReason(op)) is {} reason)throw new InvalidOperationException(reason);
-                    var preview=FeatureToggles.Supports(op)?await engine.PreviewToggle(op,vm.Hardware,choice.Enabled):await engine.Preview(op,vm.Hardware);
+                    if(!scanned)throw new InvalidOperationException("Scan PC first.");if(op.Admin&&!system.IsAdministrator)throw new InvalidOperationException("Administrator access is needed for this choice.");if((op.Incompatibility(vm.Hardware)??ModeReason(op)) is {} reason)throw new InvalidOperationException(reason);
+                    var value=await ReadSetting(op);var target=FeatureToggles.Supports(op)?FeatureToggles.Enabled(op,value)==choice.Enabled?value:FeatureToggles.Target(op,choice.Enabled):op.Kind==ActionKind.PowerSetting?PowerSettings.Target(op,value):new SettingValue(true,op.Kind==ActionKind.PowerPlan?op.Target:op.Value,op.Kind==ActionKind.PowerPlan?"Guid":"DWord");var preview=new ActionPreview(op,value,target);
                     if(generation!=lowEndGeneration||page!="Low-end PC")return;
                     var configured=preview.Current==preview.Proposed;
                     state.Text=configured?"Already configured · no change needed":"Ready · original will be saved";check.IsEnabled=!configured;if(configured)configuredIds.Add(op.Id);else availableIds.Add(op.Id);available++;
                 }
-                catch(Exception error){state.Text=error.Message;check.IsChecked=false;}
+                catch(OperationCanceledException) when(generation!=lowEndGeneration||page!="Low-end PC"){return;}
+                catch(Exception error){if(generation!=lowEndGeneration||page!="Low-end PC")return;state.Text=error.Message;check.IsChecked=false;}
             }
             if(generation!=lowEndGeneration||page!="Low-end PC")return;
             options.Children.Add(optionalPanel);optionalPanel.Header=$"More choices · {LowEndPlans.Choices.Count(x=>!x.Selected)} optional settings";loading=false;presetButtons.IsEnabled=true;SetSelection(ProfileSelection.Resolve(preferences.LowEndSelection??ProfileSelection.Preset("Recommended").ToArray(),availableIds,configuredIds),false);
@@ -72,7 +73,7 @@ public sealed partial class MainWindow
         {
             var session=group.Key;body.Children.Add(Card(Panel(Text("Saved low-end profile",18,"#F1F5FC",true),Text($"{group.First().Time.ToLocalTime():g} · {group.Count()} remaining changes",13,"#BDCCE0"),Button("Restore this profile",()=>Run(async ()=>
             {
-                Watch("Restore low-end PC profile");var results=await new TuningPlanRunner(engine).Undo(session);vm.Status=results.All(x=>x.Status=="Restored")?"Profile restored and verified.":"Restore stopped: "+results.Last().Error;Render();
+                Watch("Restore low-end PC profile");var results=await SettingsWork(()=>new TuningPlanRunner(engine).Undo(session));vm.Status=results.All(x=>x.Status=="Restored")?"Profile restored and verified.":"Restore stopped: "+results.Last().Error;Render();
             })))));
         }
         body.Children.Add(Text("Change one profile at a time and compare the same game scene. These changes do not bypass CPU, RAM or GPU limits. Fewer processes alone is not proof of faster gaming.",13,"#BDCCE0"));

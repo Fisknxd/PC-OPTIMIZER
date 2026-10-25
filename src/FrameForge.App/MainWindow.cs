@@ -42,39 +42,40 @@ public sealed partial class MainWindow : Window
     internal bool AutomatedValidation {get;set;}
     public MainWindow(JsonStore store,bool autoScan=true,ISystemSettings? settings=null,IRestorePointBackend? restoreBackend=null,IGameConfigFiles? gameFiles=null)
     {
-        this.store=store; system=settings??new WindowsSettings(activity); engine=new(system,store,activity); priorities=new(priorityBackend,store,activity); restorePoints=new(restoreBackend??new WindowsRestorePoints(),store,activity); preferences=store.Load("preferences.json",()=>new Preferences());if(preferences.Mode is not ("Safe" or "Balanced" or "Advanced"))preferences=preferences with {Mode="Safe"};watchAutomatically=settings==null&&preferences.WatchChanges;
+        this.store=store; system=settings??new WindowsSettings(activity); settingReads=new(async op=> {await system.CheckAvailability(op);return await system.Read(op);},settings==null); engine=new(system,store,activity); priorities=new(priorityBackend,store,activity); restorePoints=new(restoreBackend??new WindowsRestorePoints(),store,activity); preferences=store.Load("preferences.json",()=>new Preferences());if(preferences.Mode is not ("Safe" or "Balanced" or "Advanced"))preferences=preferences with {Mode="Safe"};watchAutomatically=settings==null&&preferences.WatchChanges;
         this.gameFiles=gameFiles??new WindowsGameConfigs();graphicsProfiles=new(this.gameFiles,store,activity);
         SetResourceReference(BackgroundProperty,"CanvasBrush"); SetResourceReference(ForegroundProperty,"TextBrush");
         FontFamily=new FontFamily("Segoe UI"); FontSize=15;
         UseLayoutRounding=true; SnapsToDevicePixels=true;
         Icon=System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/Assets/FrameForge.ico"));
-        Title="FrameForge 0.7.0 • Windows gaming toolkit"; Width=1360; Height=900; MinWidth=980; MinHeight=700; WindowStartupLocation=WindowStartupLocation.CenterScreen; DataContext=vm;
-        var shell=new Grid(); shell.ColumnDefinitions.Add(new(){Width=new(225)}); shell.ColumnDefinitions.Add(new()); Content=shell;
+        Title="FrameForge 0.8.0 • Windows gaming toolkit"; Width=1360; Height=900; MinWidth=980; MinHeight=700; WindowStartupLocation=WindowStartupLocation.CenterScreen; DataContext=vm;
+        var shell=new Grid(); shell.ColumnDefinitions.Add(new(){Width=new(216)}); shell.ColumnDefinitions.Add(new()); Content=shell;
         var side=new DockPanel { Background=Brush("#101A2B"),Margin=new(0) }; shell.Children.Add(side);
-        var brand=new StackPanel { Margin=new(22,28,16,24) }; var brandRow=new StackPanel {Orientation=Orientation.Horizontal}; brandRow.Children.Add(new Image {Source=new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/FrameForge.png")),Width=30,Height=30,Margin=new(0,0,8,0)}); brandRow.Children.Add(Text("FRAMEFORGE",18,"#5EE0BA",true)); brand.Children.Add(brandRow); brand.Children.Add(Text("READY FOR PLAY.",10,"#8FA2BC")); DockPanel.SetDock(brand,Dock.Top); side.Children.Add(brand);
-        var footer=Text((system.IsAdministrator?"● Administrator access":"○ Standard access")+"\nLocal · No account\nv0.7.0 · Preview",11,"#8FA2BC"); footer.Margin=new(22,12,16,22); DockPanel.SetDock(footer,Dock.Bottom); side.Children.Add(footer);
+        var brand=new StackPanel { Margin=new(22,28,16,24) }; var brandRow=new StackPanel {Orientation=Orientation.Horizontal}; brandRow.Children.Add(new Image {Source=new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/FrameForge.png")),Width=30,Height=30,Margin=new(0,0,8,0)}); brandRow.Children.Add(Text("FRAMEFORGE",18,"#5EE0BA",true)); brand.Children.Add(brandRow); brand.Children.Add(Text("YOUR PC. READY TO PLAY.",10,"#8FA2BC")); DockPanel.SetDock(brand,Dock.Top); side.Children.Add(brand);
+        var footer=Text((system.IsAdministrator?"● Administrator access":"○ Standard access")+"\nLocal · No account\nv0.8.0 · Preview",11,"#8FA2BC"); footer.Margin=new(22,12,16,22); DockPanel.SetDock(footer,Dock.Bottom); side.Children.Add(footer);
         var nav=new StackPanel { Margin=new(12,0,10,0) }; side.Children.Add(new ScrollViewer {Content=nav,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled});
+        nav.Children.Add(Text("PLAY & PERFORMANCE",10,"#8FA2BC",true));
         var moreTools=new StackPanel();extraNavigation=new Expander {Header="More tools",Content=moreTools,Margin=new(6,10,0,8)};
         foreach(var item in new[]{("Dashboard","◫"),("Low-end PC","↓"),("Potato Settings","◈"),("Optimize","⚡"),("Monitor","▥"),("Restore","↶"),("Services","≋"),("Debloat","▦"),("Gaming","◇"),("App priority","↑"),("Cleanup","⌁"),("Tools","⊞"),("Quality of Life","◐"),("Settings","⚙")})
         {
             if(item.Item1=="Services")nav.Children.Add(extraNavigation);
-            var label=item.Item1;var button=Button(item.Item2+"   "+PageName(label),()=>Go(label));button.Margin=new(0,2,0,2);button.Background=Brush("#101A2B");navigation[label]=button;
+            var label=item.Item1;var button=Button(item.Item2+"   "+PageName(label),()=> {if(page!=label)Go(label);});button.Margin=new(0,2,0,2);button.Style=(Style)FindResource("NavigationButton");navigation[label]=button;
             (ExtraPages.Contains(label)?moreTools:nav).Children.Add(button);
         }
-        Grid.SetColumn(workspace,1); workspace.Margin=new(30,24,28,16); shell.Children.Add(workspace);
+        Grid.SetColumn(workspace,1); workspace.Margin=new(26,22,22,16); shell.Children.Add(workspace);
         workspace.RowDefinitions.Add(new(){Height=GridLength.Auto}); workspace.RowDefinitions.Add(new(){Height=GridLength.Auto}); workspace.RowDefinitions.Add(new()); workspace.RowDefinitions.Add(new(){Height=GridLength.Auto});
         var top=new DockPanel(); workspace.Children.Add(top);
-        DockPanel.SetDock(topActions,Dock.Right); topActions.Children.Add(Button("Watch changes",ShowActivity)); topActions.Children.Add(Button("↻  Scan PC",()=>Run(Scan))); topActions.Children.Add(PrimaryButton("Tweaks",OpenFeatures)); top.Children.Add(topActions); top.Children.Add(heading);
-        searchDelay.Tick+=(_,_)=> { searchDelay.Stop(); query=search.Text; if(page!="Optimize") Go("Optimize"); else Render(); };
+        DockPanel.SetDock(topActions,Dock.Right); topActions.Children.Add(Button("Live changes",ShowActivity)); topActions.Children.Add(PrimaryButton("↻  Scan PC",()=>Run(Scan))); top.Children.Add(topActions); top.Children.Add(heading);
+        searchDelay.Tick+=(_,_)=>ApplySearch();
         search.TextChanged+=(_,_)=> { searchDelay.Stop(); searchDelay.Start(); }; search.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,"Global feature search");
-        var searchbar=new DockPanel { Margin=new(0,12,0,14) }; var shortcut=Text("Ctrl+K  Search",12,"#BDCCE0"); DockPanel.SetDock(shortcut,Dock.Right); searchbar.Children.Add(shortcut); search.Width=double.NaN; searchbar.Children.Add(search); Grid.SetRow(searchbar,1); workspace.Children.Add(searchbar);
-        pageScroll.Content=body; Grid.SetRow(pageScroll,2); workspace.Children.Add(pageScroll);
+        var searchbar=new DockPanel { Margin=new(0,12,0,14) }; var clearSearch=Button("Clear",()=> {search.Text="";ApplySearch();search.Focus();}); clearSearch.ToolTip="Clear search (Esc)";DockPanel.SetDock(clearSearch,Dock.Right);searchbar.Children.Add(clearSearch); search.Width=double.NaN; searchbar.Children.Add(search); Grid.SetRow(searchbar,1); workspace.Children.Add(searchbar);
+        pageScroll.PanningMode=PanningMode.VerticalOnly;pageScroll.CanContentScroll=false;pageScroll.Content=body; Grid.SetRow(pageScroll,2); workspace.Children.Add(pageScroll);
         var statusArea=new StackPanel { Margin=new(0,12,0,0) };
         var progress=new ProgressBar { IsIndeterminate=true,Margin=new(0,0,0,8) }; progress.SetBinding(VisibilityProperty,new Binding(nameof(AppViewModel.Busy)) { Converter=new BooleanToVisibilityConverter() }); statusArea.Children.Add(progress);
         var statusLine=new DockPanel(); var cancel=Button("Cancel scan",()=>readCancellation?.Cancel()); cancel.Visibility=Visibility.Collapsed; cancel.SetBinding(VisibilityProperty,new Binding(nameof(AppViewModel.CanCancel)) { Converter=new BooleanToVisibilityConverter() }); DockPanel.SetDock(cancel,Dock.Right); statusLine.Children.Add(cancel);
         var status=new TextBlock { FontSize=13,Foreground=Brush("#BDCCE0"),TextWrapping=TextWrapping.Wrap,VerticalAlignment=VerticalAlignment.Center }; status.SetBinding(TextBlock.TextProperty,new Binding(nameof(AppViewModel.Status))); statusLine.Children.Add(status); statusArea.Children.Add(statusLine); Grid.SetRow(statusArea,3); workspace.Children.Add(statusArea);
-        PreviewKeyDown+=(_,e)=> { if(e.Key==System.Windows.Input.Key.K&&System.Windows.Input.Keyboard.Modifiers==System.Windows.Input.ModifierKeys.Control) { search.Focus(); search.SelectAll(); e.Handled=true; } };
-        Closed+=(_,_)=> { StopLiveMonitor(); searchDelay.Stop(); activityWindow?.Close(); };
+        PreviewKeyDown+=(_,e)=> { if(e.Key==System.Windows.Input.Key.Escape&&search.IsKeyboardFocusWithin&&search.Text.Length>0){search.Text="";ApplySearch();e.Handled=true;return;}if(e.Key==System.Windows.Input.Key.K&&System.Windows.Input.Keyboard.Modifiers==System.Windows.Input.ModifierKeys.Control) { search.Focus(); search.SelectAll(); e.Handled=true; } };
+        Closed+=(_,_)=> { StopLiveMonitor(); searchDelay.Stop(); pageReads.Cancel();activityWindow?.Close(); };
         Closing+=(_,e)=> { if(vm.Busy) { e.Cancel=true; vm.Status="Wait for the current action to finish before closing; changes may be in progress."; } };
         Go("Dashboard");
         if(autoScan) Loaded+=(_,_)=> { if(!scanned&&!vm.Busy) Run(Scan); };
@@ -96,12 +97,13 @@ public sealed partial class MainWindow : Window
     static string GiB(long? value)=>value is {} v?$"{v/1073741824d:F1} GiB":"Unavailable";
     void Go(string name)
     {
-        if(vm.Busy) return; StopLiveMonitor();if(extraNavigation!=null)extraNavigation.IsExpanded=ExtraPages.Contains(name);page=name; heading.Text=PageName(name); pageScroll.ScrollToTop();
-        foreach(var n in navigation) n.Value.Background=Brush(n.Key==name?"#25413F":"#101A2B"); Render();
+        if(vm.Busy) return;searchDelay.Stop();if(name=="Optimize")query=search.Text.Trim();scrollPositions[page]=pageScroll.VerticalOffset;StopLiveMonitor();if(extraNavigation!=null)extraNavigation.IsExpanded=ExtraPages.Contains(name);page=name;heading.Text=PageName(name);
+        UpdateNavigation();Render();var currentGeneration=pageGeneration;var offset=scrollPositions.GetValueOrDefault(name);
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded,new Action(()=>{if(IsCurrent(currentGeneration))pageScroll.ScrollToVerticalOffset(offset);}));
     }
     void Render()
     {
-        body.Children.Clear();
+        BeginPage();body.Children.Clear();
         switch(page)
         {
             case "Dashboard": Dashboard(); break;
@@ -123,7 +125,7 @@ public sealed partial class MainWindow : Window
     static string PageName(string name)=>name switch {"Dashboard"=>"Home","Optimize"=>"Tweaks","Debloat"=>"Apps","Gaming"=>"Game setup","Monitor"=>"Live stats","Cleanup"=>"Clean up","Quality of Life"=>"Desktop","Restore"=>"Recovery","Tools"=>"Connection",_=>name};
     async void Run(Func<Task> work)
     {
-        if(vm.Busy) return; vm.Busy=true;
+        if(vm.Busy) return;searchDelay.Stop();settingReads.Invalidate();vm.Busy=true;vm.Status="Working… Checking and verifying the requested action.";await Dispatcher.Yield(DispatcherPriority.Background);
         // Disable navigation and action surfaces for the duration; status stays visible.
         StopLiveMonitor(); body.IsEnabled=false; search.IsEnabled=false; topActions.IsEnabled=false; foreach(var b in navigation.Values) b.IsEnabled=false;
         try { await work(); }
@@ -135,7 +137,7 @@ public sealed partial class MainWindow : Window
             if(AutomatedValidation)throw;
             MessageBox.Show(this,e.Message,"FrameForge — action failed",MessageBoxButton.OK,MessageBoxImage.Warning);
         }
-        finally { vm.Busy=false; body.IsEnabled=true; search.IsEnabled=true; topActions.IsEnabled=true; foreach(var b in navigation.Values) b.IsEnabled=true; }
+        finally { settingReads.Invalidate();vm.Busy=false; body.IsEnabled=true; search.IsEnabled=true; topActions.IsEnabled=true; foreach(var b in navigation.Values) b.IsEnabled=true; }
     }
     async Task Scan()
     {
@@ -162,29 +164,29 @@ public sealed partial class MainWindow : Window
         if(!scanned) await Scan();
         if((o.Incompatibility(vm.Hardware)??ModeReason(o)) is {} reason) throw new InvalidOperationException(reason);
         if(!o.Reversible) { WindowsSettings.Open(o); vm.Status="Opened "+o.Name+". Any external changes need manual review and reversal."; return; }
-        var preview=await engine.Preview(o,vm.Hardware);
+        var preview=await SettingsWork(()=>engine.Preview(o,vm.Hardware));
         if(preview.Current==preview.Proposed) { vm.Status="Already configured: "+o.Name; return; }
         var approved=Review([preview]);
         if(approved.Count==0) return;
         Watch(o.Name);
-        var r=await engine.Apply(preview,vm.Hardware,Guid.NewGuid().ToString("N"));
+        var r=await SettingsWork(()=>engine.Apply(preview,vm.Hardware,Guid.NewGuid().ToString("N")));
         vm.Status=r==null?"Already configured.":$"{r.Name}: {r.Status}. {r.Error}"; Render();
-        if(r?.Status=="Failed") throw new IOException(r.Error+" The journal contains the original state; use Restore.");
+        if(r?.Status=="Failed") throw new IOException(r.Error+" The journal contains the original state; use Recovery.");
     }
     async Task Smart()
     {
         if(!scanned) await Scan();
         var candidates=Catalog.All.Where(o=>o.Smart&&o.Risk==Risk.Low&&o.Incompatibility(vm.Hardware)==null);
         var previews=new List<ActionPreview>();
-        foreach(var o in candidates) { var p=await engine.Preview(o,vm.Hardware); if(p.Current!=p.Proposed) previews.Add(p); }
+        foreach(var o in candidates) { var p=await SettingsWork(()=>engine.Preview(o,vm.Hardware)); if(p.Current!=p.Proposed) previews.Add(p); }
         var approved=Review(previews,smart:true); var session=Guid.NewGuid().ToString("N"); var report=new List<string>();
         if(approved.Count>0) Watch("Apply reviewed changes");
         foreach(var p in approved)
         {
-            try { var r=await engine.Apply(p,vm.Hardware,session); report.Add($"{p.Operation.Name}: {r?.Status??"Already configured"} {r?.Error}"); if(r?.Status=="Failed") break; }
+            try { var r=await SettingsWork(()=>engine.Apply(p,vm.Hardware,session)); report.Add($"{p.Operation.Name}: {r?.Status??"Already configured"} {r?.Error}"); if(r?.Status=="Failed") break; }
             catch(Exception e) { report.Add(p.Operation.Name+": "+e.Message); break; }
         }
-        if(approved.Count>0) MessageBox.Show(this,string.Join("\n",report)+"\n\nOriginal states are stored in Restore. No gaming performance gain was measured.","Smart Optimize report");
+        if(approved.Count>0) MessageBox.Show(this,string.Join("\n",report)+"\n\nOriginal states are stored in Recovery. No gaming performance gain was measured.","Smart Optimize report");
         vm.Status="Smart Optimize review complete. Each approved change was separately verified."; Render();
     }
     List<ActionPreview> Review(IReadOnlyList<ActionPreview> previews,bool smart=false)
@@ -194,7 +196,7 @@ public sealed partial class MainWindow : Window
         var grid=new DockPanel { Margin=new(25) }; win.Content=grid;
         var buttons=Row(Button("Apply selected changes",()=>win.DialogResult=true),Button("Cancel",()=>win.DialogResult=false)); DockPanel.SetDock(buttons,Dock.Bottom); grid.Children.Add(buttons);
         var content=new StackPanel(); grid.Children.Add(new ScrollViewer { Content=content,VerticalScrollBarVisibility=ScrollBarVisibility.Auto });
-        content.Children.Add(Text(smart?"Your system action plan":"Choose what changes",25,"#5EE0BA",true)); content.Children.Add(Text($"Mode: {preferences.Mode}. Every action still needs approval. Only implemented reversible low-risk conveniences are included in Smart Optimize. Advanced mode never bypasses protections.",13,"#A7B7CD"));
+        content.Children.Add(Text(smart?"Your system action plan":"Choose what changes",25,"#5EE0BA",true)); content.Children.Add(Text($"Choices: {ReviewLevelLabel(preferences.Mode)}. Every action still needs approval. Only implemented reversible low-risk conveniences are included in Smart Optimize. Experiments never bypasses protections.",13,"#A7B7CD"));
         if(smart)
         {
             content.Children.Add(Text("Review gaming and resource settings",19,"#5EE0BA",true));

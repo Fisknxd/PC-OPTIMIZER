@@ -1,4 +1,4 @@
-FRAMEFORGE 0.7.0 — WINDOWS X64 PREVIEW
+FRAMEFORGE 0.8.0 — WINDOWS X64 PREVIEW
 
 START
 Extract the entire ZIP. Open FrameForge/FrameForge.exe and keep its DLLs
@@ -60,9 +60,16 @@ exported reports before sharing because they can include local hardware/paths.
 VERIFICATION
 Release build passed with no warnings. 150 tests passed; 2 symlink privilege
 tests were skipped. Windows control, service round-trip UI, recovery UI and read-only native checks
-passed. See Source/docs/UPDATE-0.7.0.md and the validation bundle for details.
+passed. See Source/docs/UPDATE-0.8.0.md and the validation bundle for details.
 
 Service writes and app priority writes still need live acceptance on supported
 PCs. Their journal/undo logic is tested with simulated states. Installed game files and Windows settings on
 this PC were not modified for release validation. The real Windows file
-backend was tested against disposable graphics-config fixtures. Read UPDATE-0.7.0 for scope.
+backend was tested against disposable graphics-config fixtures. Read UPDATE-0.8.0 for scope.
+
+SMOOTHER DAILY USE
+Search keeps existing controls and focus. Use categories and current-state filters
+to find a tweak. Refresh rereads Windows; applying always checks the real current
+state. Navigation keeps each page position, guide selections and connection input.
+Live changes batches output and lets you pause Follow latest to read earlier steps.
+Large imported recordings are prepared in a background worker.

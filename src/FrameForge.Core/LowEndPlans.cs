@@ -28,6 +28,9 @@ public sealed class TuningPlanRunner(OperationEngine engine)
     public async Task<TuningPlanResult> Apply(IReadOnlyList<ActionPreview> previews,HardwareSnapshot hardware)
     {
         if(previews.Any(p=>!LowEndPlans.Choices.Any(c=>c.OperationId==p.Operation.Id))||previews.GroupBy(p=>p.Operation.Id).Any(g=>g.Count()>1))throw new InvalidOperationException("Unknown or repeated profile operation.");
+        // Base browser settings precede their stronger dependent settings, regardless
+        // of selection/input ordering. The engine revalidates them before each write.
+        previews=previews.OrderBy(p=>LowEndPlans.Choices.ToList().FindIndex(c=>c.OperationId==p.Operation.Id)).ToArray();
         // Complete preflight before the first mutation. Engine.Apply rechecks each preview too.
         foreach(var preview in previews)
         {

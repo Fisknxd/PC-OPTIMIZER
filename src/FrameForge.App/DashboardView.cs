@@ -48,7 +48,7 @@ public sealed partial class MainWindow
 
         if(!scanned)
         {
-            Add("A deliberate workflow","1. Scan your hardware  →  2. Review a setting and its tradeoffs  →  3. Measure the result\nSupported setting changes keep original values in Restore. File cleanup and app removal require their own review.");
+            Add("A deliberate workflow","1. Scan your hardware  →  2. Review a setting and its tradeoffs  →  3. Measure the result\nSupported setting changes keep original values in Recovery. File cleanup and app removal require their own review.");
             return;
         }
         var findings=HealthAdvisor.Analyze(h);
@@ -75,7 +75,7 @@ public sealed partial class MainWindow
         var dialog=new SaveFileDialog { FileName=$"FrameForge-system-{DateTime.Now:yyyyMMdd-HHmm}.json",Filter="System report (JSON)|*.json" };
         if(dialog.ShowDialog(this)==true)
         {
-            File.WriteAllText(dialog.FileName,JsonSerializer.Serialize(new { Version="0.7.0",Hardware=vm.Hardware,Findings=HealthAdvisor.Analyze(vm.Hardware) },new JsonSerializerOptions {WriteIndented=true}));
+            File.WriteAllText(dialog.FileName,JsonSerializer.Serialize(new { Version="0.8.0",Hardware=vm.Hardware,Findings=HealthAdvisor.Analyze(vm.Hardware) },new JsonSerializerOptions {WriteIndented=true}));
             vm.Status="System report exported. It contains hardware names and local network details; review before sharing.";
         }
         return Task.CompletedTask;

@@ -11,7 +11,8 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        var automatedTest=e.Args.Any(x=>x is "--smoke-test" or "--ui-test" or "--feature-test" or "--integration-test" or "--recovery-test");
+        var automatedTest=e.Args.Any(x=>x is "--failure-exit-test" or "--smoke-test" or "--ui-test" or "--feature-test" or "--integration-test" or "--recovery-test");
+        if(automatedTest)ShutdownMode=ShutdownMode.OnExplicitShutdown;
         try { if(!automatedTest&&AdminLaunch.TryStart(e.Args)) { Shutdown(); return; } }
         catch(Exception error) { MessageBox.Show(error.Message,"FrameForge — account check"); Shutdown(1); return; }
         var parent=e.Args.FirstOrDefault(x=>x.StartsWith("--wait-for-process=",StringComparison.Ordinal));
@@ -48,12 +49,15 @@ public partial class App : Application
                 {
                     try
                     {
+                        if(e.Args.Contains("--failure-exit-test"))throw new InvalidDataException("Synthetic automation failure for exit-code validation.");
                         if(e.Args.Contains("--ui-test")) window.ValidateAppearance(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"));
                         if(e.Args.Contains("--integration-test")) await window.ValidateWindowsReadings(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"));
                         if(fake!=null) await window.ValidateFeatureToggles(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"),fake);
                         if(fake!=null) await window.ValidateExpandedControls(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"),fake);
                         if(fake!=null) await window.ValidatePerformanceControls(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"),fake);
                         if(fake!=null) await window.ValidateQualityControls(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"),fake);
+                        if(fake!=null) await window.ValidateResponsiveControls(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"),fake);
+                        if(fake!=null) await window.ValidateMonitorAndActivity(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"));
                         if(recovery!=null) await window.ValidateRecovery(Path.Combine(Environment.CurrentDirectory,"artifacts","ui-checks"),recovery);
                         window.Close(); Shutdown(0);
                     }

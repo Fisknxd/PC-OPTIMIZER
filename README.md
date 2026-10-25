@@ -2,13 +2,15 @@
 
 A native Windows gaming and system-management toolkit built with .NET 10 and WPF. FrameForge reads real hardware data, offers reviewed configuration changes, and preserves the original state of supported settings. It never promises a universal FPS increase.
 
-**Status: 0.7.0 engineering preview.** Cross-compilation and portable tests do not establish Windows runtime safety or MVP acceptance. Run the [Windows acceptance checklist](docs/WINDOWS-ACCEPTANCE.md) in disposable VMs before using mutating features on a primary PC. See [scope and limitations](docs/STATUS.md). Advanced phases remain gated on MVP acceptance.
+**Status: 0.8.0 engineering preview.** Cross-compilation and portable tests do not establish Windows runtime safety or MVP acceptance. Run the [Windows acceptance checklist](docs/WINDOWS-ACCEPTANCE.md) in disposable VMs before using mutating features on a primary PC. See [scope and limitations](docs/STATUS.md). Advanced phases remain gated on MVP acceptance.
 
 ## What works in the implementation
 
-- Session-based recovery, compensated grouped registry writes, persistent profile selections, automatic prerequisites, and direct PresentMon CSV imports. See the 0.7.0 notes for exact supported formats and recovery limits.
+- Responsive search without rebuilding cards, bounded background Windows reads, remembered navigation/input, clearer filters and labels, batched live logs, and worker-prepared large benchmark imports. Stronger browser policies recheck prerequisites immediately before a write.
 
-- Thirty backed-up switches, short setup guides based on the supplied feature list, optional administrator launch, native Windows restore-point creation with verification, and a custom app icon. See [0.7.0 changes and validation limits](docs/UPDATE-0.7.0.md).
+- Session-based recovery, compensated grouped registry writes, persistent profile selections, automatic prerequisites, and direct PresentMon CSV imports. See the 0.8.0 notes for exact supported formats and recovery limits.
+
+- Thirty backed-up switches, short setup guides based on the supplied feature list, optional administrator launch, native Windows restore-point creation with verification, and a custom app icon. See [0.8.0 changes and validation limits](docs/UPDATE-0.8.0.md).
 
 - **Services** adds seven reviewed Pause/restore switches with saved startup modes, dependency checks and verified undo. **App priority** offers bounded desktop-app scheduling experiments. **Watch changes** shows actual native events and streamed PowerShell output. **Potato Settings** applies saved Fortnite/Rust graphics profiles in one click with file backups and merge-safe restore. **Low-end PC** applies selected background-work and desktop changes with grouped undo.
 
@@ -57,7 +59,7 @@ Start with **Scan PC**, review **Tweaks**, and approve only changes you understa
 
 ## Documentation
 
-- [0.7.0 changes and pending checks](docs/UPDATE-0.7.0.md).
+- [0.8.0 changes and pending checks](docs/UPDATE-0.8.0.md).
 - [Development plan](docs/PLAN.md) — architecture, risks, dependencies, milestones and acceptance gates.
 - [Evidence register](docs/EVIDENCE.md) — mechanisms, exact registry keys, vendor constraints and source limitations.
 - [Developer guide](docs/DEVELOPMENT.md) — extension contracts, tests and release procedure.

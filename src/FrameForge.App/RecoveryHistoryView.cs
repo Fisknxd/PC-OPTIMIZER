@@ -33,7 +33,7 @@ public sealed partial class MainWindow
                 {
                     var fresh=engine.History.Where(x=>x.Session==session&&x.Status!="Restored").ToList();
                     if(!(SessionUndoConfirmation?.Invoke(fresh)??MessageBox.Show(this,"Restore these saved originals, newest first?\n\n"+string.Join("\n",fresh.Select(x=>"• "+x.Name))+"\n\nUndo stops if a value changed outside FrameForge. The other saved originals stay available.","Undo tuning session",MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes))return;
-                    Watch("Undo tuning session");var result=await RecoverySessions.Undo(engine,session);vm.Status=result.Error==null?$"Restored {result.Restored} changes and verified the originals.":$"Restored {result.Restored}; {result.Remaining} remain. "+result.Error;Render();
+                    Watch("Undo tuning session");var result=await SettingsWork(()=>RecoverySessions.Undo(engine,session));vm.Status=result.Error==null?$"Restored {result.Restored} changes and verified the originals.":$"Restored {result.Restored}; {result.Remaining} remain. "+result.Error;Render();
                 })));
                 var details=new StackPanel();var expander=new Expander {Header="Individual changes & saved details",Content=details};bool loaded=false;
                 expander.Expanded+=(_,_)=>
@@ -47,7 +47,7 @@ public sealed partial class MainWindow
                         if(record.Status!="Restored")entry.Children.Add(Button("Undo this change",()=>Run(async ()=>
                         {
                             if(MessageBox.Show(this,"Return this setting to its saved original?","Undo "+record.Name,MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
-                            Watch("Undo "+record.Name);var result=await engine.Undo(record.Id);vm.Status=result.Status=="Restored"?"Previous setting restored and verified.":"Undo stopped: "+result.Error;Render();
+                            Watch("Undo "+record.Name);var result=await SettingsWork(()=>engine.Undo(record.Id));vm.Status=result.Status=="Restored"?"Previous setting restored and verified.":"Undo stopped: "+result.Error;Render();
                         })));
                         details.Children.Add(entry);
                     }
@@ -57,6 +57,7 @@ public sealed partial class MainWindow
             if(groups.Count==0)results.Children.Add(Text(history.Count==0?"No changes yet. Originals are saved here when you apply a tweak.":"No matching sessions. Change the filter or clear search.",14,"#BDCCE0"));
             if(groups.Count>limit)results.Children.Add(Button("Show more sessions",()=>{limit+=20;Draw();}));
         }
-        filter.SelectionChanged+=(_,_)=>{recoveryFilter=(string)filter.SelectedItem;limit=20;Draw();};find.TextChanged+=(_,_)=>{recoverySearch=find.Text;limit=20;Draw();};Draw();
+        var debounce=new System.Windows.Threading.DispatcherTimer {Interval=TimeSpan.FromMilliseconds(180)};debounce.Tick+=(_,_)=>{debounce.Stop();Draw();};find.Unloaded+=(_,_)=>debounce.Stop();
+        filter.SelectionChanged+=(_,_)=>{recoveryFilter=(string)filter.SelectedItem;limit=20;Draw();};find.TextChanged+=(_,_)=>{recoverySearch=find.Text;limit=20;debounce.Stop();debounce.Start();};Draw();
     }
 }
